@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Gezins Weekmenu & Recepten</title>
+  
+  <!-- SEO & PWA Meta Tags -->
+  <meta name="description" content="Een slimme iOS-stijl weekmenu planner en recepten kennisbank voor gezinnen. Inclusief vegetarische en moeilijke eter aanpassingen, automatische boodschappenlijst en cloud synchronisatie.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#ff9500">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3565/3565407.png">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Wrapper representing the iPhone Frame/Screen -->
+  <div id="app" class="ios-app">
+    
+    <!-- Toast/Notification Banner -->
+    <div id="toast" class="ios-toast hidden">Recept toegevoegd!</div>
+
+    <!-- MAIN VIEWS (TABS) -->
+    <main id="main-content">
+      
+      <!-- TAB 1: WEEKMENU -->
+      <section id="tab-menu" class="tab-view active">
+        <header class="ios-header">
+          <div class="header-large-title">
+            <span class="subtitle">Gezinsplanning</span>
+            <h1>Mijn Weekmenu</h1>
+          </div>
+        </header>
+        
+        <div class="scroll-container">
+          <!-- Calendar List (Grouped Table View) -->
+          <div class="ios-list-group-title">Weekplanner</div>
+          <div class="ios-list-group" id="week-planner-list">
+            <!-- Dynamically populated days Monday-Sunday -->
+          </div>
+          
+          <!-- Shopping List Section -->
+          <div class="ios-list-group-title flex-title">
+            <span>Boodschappenlijst</span>
+            <button id="btn-copy-shopping" class="text-button" onclick="copyShoppingList()">Deel lijst</button>
+          </div>
+          <div class="ios-card shopping-list-card">
+            <div id="shopping-list-container">
+              <!-- Dynamically aggregated ingredients -->
+              <p class="empty-state">Kies gerechten in het menu om automatisch een boodschappenlijst te genereren.</p>
+            </div>
+          </div>
+          
+          <div style="height: 100px;"></div> <!-- Bottom spacer -->
+        </div>
+      </section>
+
+      <!-- TAB 2: KENNISBANK -->
+      <section id="tab-database" class="tab-view">
+        <header class="ios-header">
+          <div class="header-large-title">
+            <span class="subtitle">Kennisbank</span>
+            <h1>Recepten</h1>
+          </div>
+          <!-- Spotlight Search Bar -->
+          <div class="search-bar-wrapper">
+            <div class="search-input-container">
+              <svg class="search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+              <input type="text" id="recipe-search" placeholder="Zoek op naam, ingrediënt of nummer (#1001)..." oninput="filterRecipes()">
+              <button id="search-clear-btn" class="clear-button hidden" onclick="clearSearch()">&times;</button>
+            </div>
+          </div>
+        </header>
+
+        <div class="scroll-container">
+          <!-- Filters Section -->
+          <div class="filter-pills-container">
+            <div class="filter-section-title">Filteren op seizoenen</div>
+            <div class="filter-scroll" id="filter-seasons">
+              <button class="pill-button" data-type="season" data-value="Lente" onclick="toggleFilter(this)">🌸 Lente</button>
+              <button class="pill-button" data-type="season" data-value="Zomer" onclick="toggleFilter(this)">☀️ Zomer</button>
+              <button class="pill-button" data-type="season" data-value="Herfst" onclick="toggleFilter(this)">🍁 Herfst</button>
+              <button class="pill-button" data-type="season" data-value="Winter" onclick="toggleFilter(this)">❄️ Winter</button>
+            </div>
+            
+            <div class="filter-section-title" style="margin-top: 8px;">Filteren op keuken</div>
+            <div class="filter-scroll" id="filter-cuisines">
+              <button class="pill-button" data-type="cuisine" data-value="Italiaans" onclick="toggleFilter(this)">🍕 Italiaans</button>
+              <button class="pill-button" data-type="cuisine" data-value="Aziatisch" onclick="toggleFilter(this)">🥢 Aziatisch</button>
+              <button class="pill-button" data-type="cuisine" data-value="Mexicaans" onclick="toggleFilter(this)">🌮 Mexicaans</button>
+              <button class="pill-button" data-type="cuisine" data-value="Hollands" onclick="toggleFilter(this)">🥔 Hollands</button>
+              <button class="pill-button" data-type="cuisine" data-value="Overig" onclick="toggleFilter(this)">🍲 Overig</button>
+            </div>
+            
+            <div class="filter-section-title" style="margin-top: 8px;">Bereidingstijd</div>
+            <div class="filter-scroll" id="filter-times">
+              <button class="pill-button" data-type="time" data-value="30" onclick="selectTimeFilter(this, 30)">&lt; 30 min</button>
+              <button class="pill-button" data-type="time" data-value="45" onclick="selectTimeFilter(this, 45)">&lt; 45 min</button>
+              <button class="pill-button" data-type="time" data-value="all" onclick="selectTimeFilter(this, 'all')">Alle tijden</button>
+            </div>
+          </div>
+
+          <!-- Recipe List -->
+          <div class="ios-list-group-title" id="recipe-list-title">Alle Recepten (0)</div>
+          <div class="ios-list-group" id="recipes-list-container">
+            <!-- Dynamically populated with recipe items -->
+          </div>
+          
+          <div style="height: 100px;"></div>
+        </div>
+      </section>
+
+      <!-- TAB 3: SUGGESTIES (RECEPTENKIEZER) -->
+      <section id="tab-suggestions" class="tab-view">
+        <header class="ios-header">
+          <div class="header-large-title">
+            <span class="subtitle">Willekeurige gerechten</span>
+            <h1>Receptenkiezer</h1>
+          </div>
+        </header>
+
+        <div class="scroll-container">
+          <!-- Suggestion Configuration Card -->
+          <div class="ios-card selector-config-card">
+            <h3>Filters voor suggesties</h3>
+            <p class="card-desc">Stel de criteria in om 3 willekeurige recepten te genereren.</p>
+            
+            <div class="form-row">
+              <label>Seizoen</label>
+              <div class="checkbox-pill-grid" id="suggestion-season-grid">
+                <label class="pill-checkbox"><input type="checkbox" value="Lente" checked><span>🌸 Lente</span></label>
+                <label class="pill-checkbox"><input type="checkbox" value="Zomer" checked><span>☀️ Zomer</span></label>
+                <label class="pill-checkbox"><input type="checkbox" value="Herfst" checked><span>🍁 Herfst</span></label>
+                <label class="pill-checkbox"><input type="checkbox" value="Winter" checked><span>❄️ Winter</span></label>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label>Keuken</label>
+              <div class="checkbox-pill-grid" id="suggestion-cuisine-grid">
+                <label class="pill-checkbox"><input type="checkbox" value="Italiaans" checked><span>🍕 Italiaans</span></label>
+                <label class="pill-checkbox"><input type="checkbox" value="Aziatisch" checked><span>🥢 Aziatisch</span></label>
+                <label class="pill-checkbox"><input type="checkbox" value="Mexicaans" checked><span>🌮 Mexicaans</span></label>
+                <label class="pill-checkbox"><input type="checkbox" value="Hollands" checked><span>🥔 Hollands</span></label>
+                <label class="pill-checkbox"><input type="checkbox" value="Overig" checked><span>🍲 Overig</span></label>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <label for="suggestion-max-time">Maximale bereidingstijd (minuten)</label>
+              <div class="range-slider-container">
+                <input type="range" id="suggestion-max-time" min="15" max="90" step="5" value="60" oninput="updateRangeLabel(this.value)">
+                <span id="range-value-label">60 minuten</span>
+              </div>
+            </div>
+
+            <button class="ios-button primary" onclick="generateSuggestions()">Genereer 3 Recepten</button>
+          </div>
+
+          <!-- Suggestions Display Area -->
+          <div id="suggestions-output-container" class="hidden">
+            <div class="ios-list-group-title flex-title">
+              <span>Voorgestelde gerechten</span>
+              <button class="text-button" onclick="generateSuggestions()">Opnieuw genereren</button>
+            </div>
+            
+            <div class="suggestions-cards-grid" id="suggestions-grid">
+              <!-- 3 recipe suggestion cards will be injected here -->
+            </div>
+          </div>
+
+          <div style="height: 100px;"></div>
+        </div>
+      </section>
+
+      <!-- TAB 4: NIEUW RECEPT -->
+      <section id="tab-add" class="tab-view">
+        <header class="ios-header">
+          <div class="header-large-title">
+            <span class="subtitle">Kennisbank uitbreiden</span>
+            <h1>Nieuw Recept</h1>
+          </div>
+        </header>
+
+        <div class="scroll-container">
+          <form id="add-recipe-form" onsubmit="saveNewRecipe(event)">
+            
+            <div class="ios-card form-card">
+              <div class="form-group">
+                <label for="form-name">Naam Recept <span class="required">*</span></label>
+                <input type="text" id="form-name" required placeholder="Bijv. Romige Pasta Carbonara">
+              </div>
+
+              <div class="form-group">
+                <label for="form-prep-time">Bereidingstijd (minuten) <span class="required">*</span></label>
+                <input type="number" id="form-prep-time" required min="1" max="300" placeholder="Bijv. 25">
+              </div>
+            </div>
+
+            <div class="ios-list-group-title">Seizoenen (Kies alle geschikte seizoenen)</div>
+            <div class="ios-card form-card">
+              <div class="checkbox-pill-grid form-grid">
+                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Lente"><span>🌸 Lente</span></label>
+                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Zomer"><span>☀️ Zomer</span></label>
+                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Herfst"><span>🍁 Herfst</span></label>
+                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Winter"><span>❄️ Winter</span></label>
+              </div>
+            </div>
+
+            <div class="ios-list-group-title">Keuken</div>
+            <div class="ios-card form-card">
+              <div class="checkbox-pill-grid form-grid">
+                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Italiaans"><span>🍕 Italiaans</span></label>
+                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Aziatisch"><span>🥢 Aziatisch</span></label>
+                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Mexicaans"><span>🌮 Mexicaans</span></label>
+                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Hollands"><span>🥔 Hollands</span></label>
+                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Overig" checked><span>🍲 Overig</span></label>
+              </div>
+            </div>
+
+            <div class="ios-list-group-title">Ingrediënten (1 per regel)</div>
+            <div class="ios-card form-card">
+              <div class="form-group">
+                <textarea id="form-ingredients" rows="8" placeholder="Bijv:&#10;300g penne&#10;1x komkommer&#10;150g gerookte spekjes&#10;2 dl room" required></textarea>
+                <p class="input-tip">Tip: Zet de hoeveelheid vooraan (bijv. '2 stuks wortelen' of '300g kaas') voor een correcte boodschappenlijst.</p>
+              </div>
+            </div>
+
+            <div class="ios-list-group-title">Bereidingswijze</div>
+            <div class="ios-card form-card">
+              <div class="form-group">
+                <textarea id="form-instructions" rows="8" placeholder="Beschrijf stapsgewijs hoe je dit gerecht bereidt..." required></textarea>
+              </div>
+            </div>
+
+            <div class="ios-list-group-title">Gezinsaanpassingen</div>
+            <div class="ios-card form-card">
+              <div class="form-group">
+                <label for="form-veg-adj">Voor de vegetariër (1 persoon)</label>
+                <textarea id="form-veg-adj" rows="3" placeholder="Bijv. Vervang de spekjes door vegetarische spekreepjes en bak deze apart."></textarea>
+              </div>
+              <div class="form-group border-top">
+                <label for="form-picky-adj">Voor de moeilijke eter (1 persoon)</label>
+                <textarea id="form-picky-adj" rows="3" placeholder="Bijv. Houd een portie pasta apart zonder de saus en serveer met komkommerschijfjes."></textarea>
+              </div>
+            </div>
+
+            <div class="ios-list-group-title">Algemene Opmerkingen</div>
+            <div class="ios-card form-card">
+              <div class="form-group">
+                <textarea id="form-notes" rows="3" placeholder="Handige tips, serveersuggesties of favoriete variaties..."></textarea>
+              </div>
+            </div>
+
+            <div class="form-actions-container">
+              <button type="submit" class="ios-button primary">Recept Opslaan</button>
+              <button type="button" class="ios-button secondary" onclick="resetRecipeForm()">Invoer wissen</button>
+            </div>
+            
+          </form>
+          <div style="height: 100px;"></div>
+        </div>
+      </section>
+
+      <!-- TAB 5: INSTELLINGEN -->
+      <section id="tab-settings" class="tab-view">
+        <header class="ios-header">
+          <div class="header-large-title">
+            <span class="subtitle">App configuratie</span>
+            <h1>Instellingen</h1>
+          </div>
+        </header>
+
+        <div class="scroll-container">
+          
+          <!-- Cloud Synchronization -->
+          <div class="ios-list-group-title">Gezinssynchronisatie (Cloud)</div>
+          <div class="ios-card settings-card">
+            <p class="settings-info-text">Typ hieronder een unieke gezinscode. Gebruik dezelfde code op de telefoons van andere gezinsleden om recepten en het weekmenu direct met elkaar te delen.</p>
+            <div class="form-group">
+              <label for="settings-sync-key">Unieke Gezins-code</label>
+              <input type="text" id="settings-sync-key" placeholder="Bijv: familie-smit-menu-2026" onchange="saveSyncKey()">
+            </div>
+            
+            <div class="sync-actions-row">
+              <button id="btn-sync" class="ios-button primary" onclick="syncWithCloud()">Synchroniseer Nu</button>
+            </div>
+            <p id="sync-status-msg" class="sync-status-offline">Niet gesynchroniseerd (lokaal actief)</p>
+          </div>
+
+          <!-- Data Management -->
+          <div class="ios-list-group-title">Back-up & Im-/Export</div>
+          <div class="ios-card settings-card">
+            <button class="ios-button secondary-light" onclick="exportData()">Exporteer Data (JSON)</button>
+            <div style="height: 10px;"></div>
+            
+            <label for="import-file" class="custom-file-upload ios-button secondary-light">
+              <span>Importeer Data (JSON)</span>
+              <input type="file" id="import-file" accept=".json" onchange="importData(event)">
+            </label>
+          </div>
+
+          <div class="ios-list-group-title">Systeem</div>
+          <div class="ios-card settings-card">
+            <button class="ios-button danger-light" onclick="confirmResetToSeed()">Reset naar Fabrieksinstellingen</button>
+            <p class="danger-tip">Waarschuwing: Hiermee wis je al je handmatig ingevoerde recepten en je weekplanning.</p>
+          </div>
+
+          <div class="about-version">
+            <p>Gezins Recepten & Menu App v1.2</p>
+            <p>Ontworpen voor iOS in HTML5/CSS3/Vanilla JS</p>
+          </div>
+
+          <div style="height: 100px;"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- TAB BAR (iOS Bottom Navigation) -->
+    <nav class="ios-tab-bar">
+      
+      <button class="tab-item active" onclick="switchTab('menu')">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zm-7 5h5v5h-5z"/></svg>
+        <span class="tab-label">Weekmenu</span>
+      </button>
+
+      <button class="tab-item" onclick="switchTab('database')">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+        <span class="tab-label">Kennisbank</span>
+      </button>
+
+      <button class="tab-item" onclick="switchTab('suggestions')">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm1 14h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <span class="tab-label">Suggesties</span>
+      </button>
+
+      <button class="tab-item" onclick="switchTab('add')">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+        <span class="tab-label">Nieuw</span>
+      </button>
+
+      <button class="tab-item" onclick="switchTab('settings')">
+        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        <span class="tab-label">Opties</span>
+      </button>
+
+    </nav>
+
+    <!-- DETAILED RECIPE OVERLAY (Cupertino Modal Sheet) -->
+    <div id="recipe-modal" class="ios-modal hidden" onclick="closeModalOnBackdrop(event)">
+      <div class="modal-sheet animate-slide-up">
+        
+        <!-- Modal Top Indicator Drag Handle -->
+        <div class="modal-drag-indicator"></div>
+        
+        <!-- Modal Navigation Bar -->
+        <div class="modal-nav">
+          <span id="modal-recipe-id" class="modal-badge">#1001</span>
+          <h2 id="modal-recipe-name">Recept Details</h2>
+          <button class="modal-close-btn" onclick="closeRecipeModal()">Sluit</button>
+        </div>
+
+        <div class="modal-body-scroll">
+          
+          <div class="modal-metadata-grid">
+            <div class="meta-item">
+              <span class="meta-label">Bereidingstijd</span>
+              <span id="modal-recipe-time" class="meta-val">45 min</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Keuken</span>
+              <span id="modal-recipe-cuisine" class="meta-val">Italiaans</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">Seizoenen</span>
+              <span id="modal-recipe-seasons" class="meta-val">Alle</span>
+            </div>
+          </div>
+
+          <div class="modal-section-title">Ingrediënten</div>
+          <div class="ios-card modal-card">
+            <ul id="modal-ingredients-list" class="styled-list">
+              <!-- Injected ingredients -->
+            </ul>
+          </div>
+
+          <div class="modal-section-title">Bereidingswijze</div>
+          <div class="ios-card modal-card">
+            <div id="modal-instructions-content" class="text-block">
+              <!-- Injected cooking instructions -->
+            </div>
+          </div>
+
+          <div class="modal-section-title green-title">Gezinsaanpassingen (4 personen)</div>
+          <div class="ios-card modal-card family-adjustments-card">
+            <div class="adjustment-section">
+              <div class="adj-header">
+                <svg class="adj-icon green" viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21.34c-.1.22.06.47.3.47h3.38c.66 0 1.25-.37 1.54-.97l1.7-3.52c.2-.42.63-.69 1.1-.69h3.42c2.44 0 4.41-1.97 4.41-4.41V8h-2.67zM6 3c-.55 0-1 .45-1 1v2c0 .55.45 1 1 1s1-.45 1-1V4c0-.55-.45-1-1-1zm6-1c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1s1-.45 1-1V3c0-.55-.45-1-1-1zm6 1c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1s1-.45 1-1V4c0-.55-.45-1-1-1z"/></svg>
+                <h4>Voor de Vegetariër</h4>
+              </div>
+              <p id="modal-recipe-veg"></p>
+            </div>
+            <div class="adjustment-section border-top">
+              <div class="adj-header">
+                <svg class="adj-icon orange" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
+                <h4>Voor de Moeilijke Eter</h4>
+              </div>
+              <p id="modal-recipe-picky"></p>
+            </div>
+          </div>
+
+          <div class="modal-section-title">Opmerkingen</div>
+          <div class="ios-card modal-card">
+            <p id="modal-recipe-notes" class="text-block text-grey"></p>
+          </div>
+
+          <div class="modal-actions">
+            <button id="modal-btn-plan" class="ios-button primary" onclick="openPlanActionSheetFromModal()">Zet in Weekmenu...</button>
+            <button id="modal-btn-delete" class="ios-button danger-light" onclick="deleteRecipeFromModal()">Verwijder dit Recept</button>
+          </div>
+
+          <div style="height: 50px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTION SHEET: CHOOSE DAY FOR RECIPE -->
+    <div id="day-selector-sheet" class="ios-action-sheet-backdrop hidden" onclick="closeDaySelectorSheet()">
+      <div class="action-sheet animate-slide-up-sheet">
+        <div class="action-sheet-title">Kies een dag voor het weekmenu</div>
+        <div class="action-sheet-group">
+          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Maandag')">Maandag</button>
+          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Dinsdag')">Dinsdag</button>
+          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Woensdag')">Woensdag</button>
+          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Donderdag')">Donderdag</button>
+          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Vrijdag')">Vrijdag</button>
+          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Zaterdag')">Zaterdag</button>
+          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Zondag')">Zondag</button>
+        </div>
+        <div class="action-sheet-group">
+          <button class="action-btn cancel-btn" onclick="closeDaySelectorSheet()">Annuleer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTEXT MENU / DIALOG: CLEAR OR CHANGE DAY -->
+    <div id="planner-action-sheet" class="ios-action-sheet-backdrop hidden" onclick="closePlannerActionSheet()">
+      <div class="action-sheet animate-slide-up-sheet">
+        <div id="planner-action-title" class="action-sheet-title">Maandag: Lasagne</div>
+        <div class="action-sheet-group">
+          <button class="action-btn" onclick="openRecipeDetailsFromPlannerSheet()">Bekijk Recept</button>
+          <button class="action-btn" onclick="goToSuggestionsFromPlannerSheet()">Kies Ander Gerecht</button>
+          <button class="action-btn danger-btn" onclick="clearDayFromPlannerSheet()">Verwijder van deze dag</button>
+        </div>
+        <div class="action-sheet-group">
+          <button class="action-btn cancel-btn" onclick="closePlannerActionSheet()">Annuleer</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Load Scripts in Order -->
+  <script src="recipes-seed.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
