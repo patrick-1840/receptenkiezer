@@ -23,7 +23,7 @@ let state = {
 
 // Cloud Sync configuration
 const SYNC_BUCKET_ID = "antigravity-weekmenu-v1";
-const SYNC_API_URL = "https://kvdb.io/A4g9cW5r3PzYtS7bJnKx"; // Unieke app bucket
+const SYNC_API_URL = "https://kvdb.io/Adu8ooSxyNFVJGkegxDkVa"; // Unieke app bucket
 
 // Initialisatie bij het laden van de pagina
 document.addEventListener('DOMContentLoaded', () => {
