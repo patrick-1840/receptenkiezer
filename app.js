@@ -1044,8 +1044,7 @@ function updateSyncStatusText() {
 }
 
 async function syncWithCloud() {
-  const SYNC_API_URL = 'https://kvdb.io';
-  const SYNC_BUCKET_ID = state.syncApiKey;
+  const KVDB_BASE_URL = 'https://kvdb.io';
   if (!state.syncApiKey) {
     alert("Voer eerst een bucket ID in bij Instellingen om te kunnen synchroniseren.");
     return;
@@ -1062,7 +1061,8 @@ async function syncWithCloud() {
   btn.disabled = true;
   
   try {
-    const url = `${SYNC_API_URL}/${SYNC_BUCKET_ID}/${state.syncKey}`;
+    //const url = `${SYNC_API_URL}/${SYNC_BUCKET_ID}/${state.syncKey}`;
+	const url = `${KVDB_BASE_URL}/${state.syncApiKey}/${state.syncKey}`;
 	alert(url);
     
     // 1. Haal de cloud data op
