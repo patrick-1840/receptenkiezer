@@ -1,6 +1,7 @@
 // State management voor de Recepten & Menu App
 let state = {
   recipes: [],
+  deletedRecipeIds: [],
   weekmenu: {
     'Maandag': null,
     'Dinsdag': null,
@@ -50,6 +51,7 @@ function loadData() {
     try {
       const parsed = JSON.parse(localData);
       state.recipes = parsed.recipes || [];
+      state.deletedRecipeIds = parsed.deletedRecipeIds || [];
       state.weekmenu = parsed.weekmenu || {
         'Maandag': null, 'Dinsdag': null, 'Woensdag': null,
         'Donderdag': null, 'Vrijdag': null, 'Zaterdag': null, 'Zondag': null
@@ -71,7 +73,7 @@ function loadData() {
   const syncInput = document.getElementById('settings-sync-key');
   if (syncInput) syncInput.value = state.syncKey;
   if (syncApiInput) syncApiInput.value = state.syncApiKey;
-  syncWithCloud();
+  //syncWithCloud();
   updateSyncStatusText();
 }
 
@@ -94,6 +96,7 @@ function saveToLocalStorage() {
   state.lastUpdated = Date.now();
   localStorage.setItem('gezinsmenu_app_state', JSON.stringify({
     recipes: state.recipes,
+    deletedRecipeIds: state.deletedRecipeIds,
     weekmenu: state.weekmenu,
     syncKey: state.syncKey,
     syncApiKey: state.syncApiKey,
@@ -521,6 +524,7 @@ function deleteRecipeFromModal() {
   if (confirm(`Weet je zeker dat je het recept "${recipe.name}" permanent wilt verwijderen?`)) {
     // Verwijder uit recepten
     state.recipes = state.recipes.filter(r => r.id !== activeModalRecipeId);
+    state.deletedRecipeIds.push(activeModalRecipeId);
     
     // Verwijder uit weekplanner indien ingepland
     for (let day in state.weekmenu) {
@@ -1108,17 +1112,21 @@ async function syncWithCloud() {
       let mergedRecipes = [...state.recipes];
       
       cloudData.recipes.forEach(cloudRec => {
+		if (state.deletedRecipeIds.includes(cloudRec.id)) return;
+		
         const localIndex = mergedRecipes.findIndex(r => r.id === cloudRec.id);
         if (localIndex === -1) {
           // Recept bestaat niet lokaal, toevoegen
           mergedRecipes.push(cloudRec);
-        } else {
+        }
+/*		else {
           // Recept bestaat al. In een complexer systeem zouden we timestamps checken.
           // Hier overschrijven we lokaal met cloud data indien cloud nieuwer is.
           if (cloudData.lastUpdated > state.lastUpdated) {
             mergedRecipes[localIndex] = cloudRec;
           }
         }
+		*/
       });
       
       state.recipes = mergedRecipes;
@@ -1135,6 +1143,7 @@ async function syncWithCloud() {
     state.lastUpdated = Date.now();
     const payload = {
       recipes: state.recipes,
+	  deletedRecipeIds: state.deletedRecipeIds,
       weekmenu: state.weekmenu,
       lastUpdated: state.lastUpdated,
       shoppingListChecked: state.shoppingListChecked
