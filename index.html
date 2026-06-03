@@ -93,10 +93,10 @@
             
             <div class="filter-section-title" style="margin-top: 8px;">Filteren op gerecht</div>
             <div class="filter-scroll" id="filter-cuisines">
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Voorgerecht" required><span>🥗 Voorgerecht</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Soep" required><span>🥣 Soep</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Hoofdgerecht" required><span>🍽️ Hoofdgerecht</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Dessert" required><span>🍰 Dessert</span></label>
+				<button class="pill-button" data-type="dishType" data-value="Voorgerecht" onclick="toggleFilter(this)">🥗 Voorgerecht</button>
+				<button class="pill-button" data-type="dishType" data-value="Hoofdgerecht" onclick="toggleFilter(this)">🍽️ Hoofdgerecht</button>
+				<button class="pill-button" data-type="dishType" data-value="Dessert" onclick="toggleFilter(this)">🍰 Dessert</button>
+				<button class="pill-button" data-type="dishType" data-value="Soep" onclick="toggleFilter(this)">🥣 Soep</button>
 			  </div>
 			</div>
 
@@ -526,4 +526,3 @@
   <script src="app.js"></script>
 </body>
 </html>
- 
