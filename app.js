@@ -38,8 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Set default seasons for suggestion generator based on current month
   setDefaultSuggestionFilters();
-alert('bucket');
-alert(SYNC_BUCKET_ID);
 });
 
 // ==========================================
