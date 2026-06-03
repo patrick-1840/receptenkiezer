@@ -1064,7 +1064,9 @@ async function syncWithCloud() {
   btn.disabled = true;
   
   try {
-    const url = `${SYNC_API_URL}/${state.syncKey}`;
+    const SYNC_API_URL = 'https://kvdb.io/';
+    const SYNC_BUCKET_ID = state.syncApiKey;
+    const url = `${SYNC_API_URL}/${SYNC_BUCKET_ID}/${state.syncKey}`;
 	alert(url);
     
     // 1. Haal de cloud data op
