@@ -1102,7 +1102,8 @@ async function syncWithCloud() {
 	
 	if (cloudData) {
     // A. Update je eigen verwijder-lijst met die van de cloud
-    const allDeletedIds = [...new Set([...state.deletedRecipeIds, ...cloudData.deletedRecipeIds])];
+    const cloudDeleted = Array.isArray(cloudData.deletedRecipeIds) ? cloudData.deletedRecipeIds : [];
+	const allDeletedIds = [...new Set([...state.deletedRecipeIds, ...cloudDeleted])];
     state.deletedRecipeIds = allDeletedIds;
 
     // B. Filter je lokale recepten: verwijder alles wat in de 'deleted' lijst staat
@@ -1211,4 +1212,3 @@ function confirmResetToSeed() {
     switchTab('menu');
   }
 }
-
