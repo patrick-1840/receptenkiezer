@@ -13,6 +13,7 @@ let state = {
   activeTab: 'menu',
   activeFilters: {
     seasons: [],
+    dishTypes: [],
     cuisines: [],
     time: 'all'
   },
@@ -225,6 +226,7 @@ function renderPlanner() {
           </div>
           <div class="meta-badges-row">
             <span class="badge blue">⏱️ ${recipe.prepTime} min</span>
+            <span class="badge orange">🍳 ${recipe.dishType.join(', ')}</span>
             <span class="badge orange">🍳 ${recipe.cuisine.join(', ')}</span>
           </div>
         </div>
@@ -336,6 +338,9 @@ function generateSuggestions() {
   const seasonCheckboxes = document.querySelectorAll('#suggestion-season-grid input:checked');
   const selectedSeasons = Array.from(seasonCheckboxes).map(cb => cb.value);
   
+  const dishTypeCheckboxes = document.querySelectorAll('#suggestion-dishType-grid input:checked');
+  const selectedDishTypes = Array.from(dishTypeCheckboxes).map(cb => cb.value);
+  
   const cuisineCheckboxes = document.querySelectorAll('#suggestion-cuisine-grid input:checked');
   const selectedCuisines = Array.from(cuisineCheckboxes).map(cb => cb.value);
   
@@ -345,6 +350,10 @@ function generateSuggestions() {
   let matches = state.recipes.filter(recipe => {
     // Bereidingstijd filter
     if (recipe.prepTime > maxTime) return false;
+    
+    // Keuken filter (recept moet minstens 1 van de geselecteerde keukens bevatten)
+    const hasDishType = recipe.dishType.some(c => selectedDishTypes.includes(c));
+    if (!hasDishType) return false;
     
     // Keuken filter (recept moet minstens 1 van de geselecteerde keukens bevatten)
     const hasCuisine = recipe.cuisine.some(c => selectedCuisines.includes(c));
@@ -384,7 +393,7 @@ function generateSuggestions() {
         <div>
           <span class="recipe-id-badge">#${recipe.id}</span>
           <h4 class="suggestion-card-title">${recipe.name}</h4>
-          <p class="suggestion-time">⏱️ ${recipe.prepTime} min | 🍳 ${recipe.cuisine.join(', ')}</p>
+          <p class="suggestion-time">⏱️ ${recipe.prepTime} min | 🍳 ${recipe.cuisine.join(', ')} | 🍽 ${recipe.dishType.join(', ')}</p>
         </div>
       </div>
       <div class="meta-badges-row">
@@ -448,6 +457,7 @@ function openRecipeDetails(recipeId) {
   document.getElementById('modal-recipe-id').textContent = `#${recipe.id}`;
   document.getElementById('modal-recipe-name').textContent = recipe.name;
   document.getElementById('modal-recipe-time').textContent = `${recipe.prepTime} min`;
+  document.getElementById('modal-recipe-dishType').textContent = recipe.dishType.join(', ');
   document.getElementById('modal-recipe-cuisine').textContent = recipe.cuisine.join(', ');
   document.getElementById('modal-recipe-seasons').textContent = recipe.seasons.join(', ');
   
@@ -541,7 +551,7 @@ function toggleFilter(btn) {
   
   btn.classList.toggle('active');
   
-  const list = type === 'season' ? state.activeFilters.seasons : state.activeFilters.cuisines;
+  const list = type === 'season' ? state.activeFilters.seasons : state.activeFilters.dishTypes: state.activeFilters.cuisines;
   const index = list.indexOf(value);
   
   if (index > -1) {
@@ -612,6 +622,12 @@ function renderRecipesList() {
     }
     
     // 3. Keukens filter
+    if (state.activeFilters.dishTypes.length > 0) {
+      const hasDishType = recipe.dishType.some(c => state.activeFilters.dishTypes.includes(c));
+      if (!hasDishType) return false;
+    }
+    
+    // 3. Keukens filter
     if (state.activeFilters.cuisines.length > 0) {
       const hasCuisine = recipe.cuisine.some(c => state.activeFilters.cuisines.includes(c));
       if (!hasCuisine) return false;
@@ -652,6 +668,7 @@ function renderRecipesList() {
         </div>
         <div class="meta-badges-row">
           <span class="badge blue">⏱️ ${recipe.prepTime} min</span>
+          <span class="badge orange">🍽 ${recipe.dishType.join(', ')}</span>
           <span class="badge orange">🍳 ${recipe.cuisine.join(', ')}</span>
           ${recipe.seasons.map(s => `<span class="badge">${s}</span>`).join('')}
         </div>
@@ -684,12 +701,20 @@ function saveNewRecipe(event) {
   const seasons = Array.from(seasonCbs).map(cb => cb.value);
   
   // Keukens multi-select
+  const dishTypeCbs = document.querySelectorAll('input[name="form-dishType"]:checked');
+  const dishType = Array.from(dishTypeCbs).map(cb => cb.value);
+  
+  // Keukens multi-select
   const cuisineCbs = document.querySelectorAll('input[name="form-cuisine"]:checked');
   const cuisine = Array.from(cuisineCbs).map(cb => cb.value);
   
   // Input verificatie
   if (seasons.length === 0) {
     alert("Selecteer ten minste één geschikt seizoen.");
+    return;
+  }
+  if (dishType.length === 0) {
+    alert("Selecteer ten minste één keuken.");
     return;
   }
   if (cuisine.length === 0) {
@@ -715,6 +740,7 @@ function saveNewRecipe(event) {
   const newRecipe = {
     id: newId,
     name,
+	dishType,
     cuisine,
     prepTime,
     seasons,
