@@ -226,7 +226,7 @@ function renderPlanner() {
           </div>
           <div class="meta-badges-row">
             <span class="badge blue">⏱️ ${recipe.prepTime} min</span>
-            <span class="badge orange">🍳 ${(recipe.dishType && recipe.dishType.length > 0) ? recipe.dishType.join(', ') : '-';}</span>
+            <span class="badge orange">🍳 ${(recipe.dishType && recipe.dishType.length > 0) ? recipe.dishType.join(', ') : '-'}</span>
             <span class="badge orange">🍳 ${recipe.cuisine.join(', ')}</span>
           </div>
         </div>
@@ -668,7 +668,7 @@ function renderRecipesList() {
         </div>
         <div class="meta-badges-row">
           <span class="badge blue">⏱️ ${recipe.prepTime} min</span>
-          <span class="badge orange">🍽 ${(recipe.dishType && recipe.dishType.length > 0) ? recipe.dishType.join(', ') : '-';}</span>
+          <span class="badge orange">🍽 ${(recipe.dishType && recipe.dishType.length > 0) ? recipe.dishType.join(', ') : '-'}</span>
           <span class="badge orange">🍳 ${recipe.cuisine.join(', ')}</span>
           ${recipe.seasons.map(s => `<span class="badge">${s}</span>`).join('')}
         </div>
