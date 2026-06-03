@@ -226,7 +226,7 @@ function renderPlanner() {
           </div>
           <div class="meta-badges-row">
             <span class="badge blue">⏱️ ${recipe.prepTime} min</span>
-            <span class="badge orange">🍳 ${recipe.dishType.join(', ')}</span>
+            <span class="badge orange">🍳 ${(recipe.dishType && recipe.dishType.length > 0) ? recipe.dishType.join(', ') : '-';}</span>
             <span class="badge orange">🍳 ${recipe.cuisine.join(', ')}</span>
           </div>
         </div>
