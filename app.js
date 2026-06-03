@@ -17,13 +17,15 @@ let state = {
     time: 'all'
   },
   syncKey: '',
+  syncApiKey: '',
   lastUpdated: 0,
   shoppingListChecked: {} // key format: "itemName_isChecked"
 };
 
 // Cloud Sync configuration
 const SYNC_BUCKET_ID = "4NaY4FPKgfhiSxfFQwps68";
-const SYNC_API_URL = "https://kvdb.io/4NaY4FPKgfhiSxfFQwps68"; // Unieke app bucket
+//const SYNC_API_URL = state.syncKey;
+//"https://kvdb.io/4NaY4FPKgfhiSxfFQwps68"; // Unieke app bucket
 
 // Initialisatie bij het laden van de pagina
 document.addEventListener('DOMContentLoaded', () => {
@@ -52,6 +54,8 @@ function loadData() {
         'Donderdag': null, 'Vrijdag': null, 'Zaterdag': null, 'Zondag': null
       };
       state.syncKey = parsed.syncKey || '';
+      state.syncApiKey = parsed.syncApiKey || '';
+	  const SYNC_BUCKET_ID = parsed.syncApiKey || '';
       state.lastUpdated = parsed.lastUpdated || Date.now();
       state.shoppingListChecked = parsed.shoppingListChecked || {};
     } catch (e) {
@@ -63,8 +67,10 @@ function loadData() {
   }
   
   // Update Sync Key input in UI
+  const syncApiInput = document.getElementById('settings-sync-api-key');
   const syncInput = document.getElementById('settings-sync-key');
   if (syncInput) syncInput.value = state.syncKey;
+  if (syncApiInput) syncApiInput.value = state.syncApiKey;
   updateSyncStatusText();
 }
 
@@ -89,6 +95,7 @@ function saveToLocalStorage() {
     recipes: state.recipes,
     weekmenu: state.weekmenu,
     syncKey: state.syncKey,
+    syncApiKey: state.syncApiKey,
     lastUpdated: state.lastUpdated,
     shoppingListChecked: state.shoppingListChecked
   }));
@@ -1012,6 +1019,14 @@ function saveSyncKey() {
   const input = document.getElementById('settings-sync-key');
   state.syncKey = input.value.trim().replace(/[^a-zA-Z0-9-_]/g, ''); // Clean characters
   input.value = state.syncKey;
+  saveToLocalStorage();
+  updateSyncStatusText();
+}
+
+function saveSyncApiKey() {
+  const input = document.getElementById('settings-sync-api-key');
+  state.syncApiKey = input.value.trim().replace(/[^a-zA-Z0-9-_]/g, ''); // Clean characters
+  input.value = state.syncApiKey;
   saveToLocalStorage();
   updateSyncStatusText();
 }
