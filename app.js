@@ -392,7 +392,7 @@ function generateSuggestions() {
         <div>
           <span class="recipe-id-badge">#${recipe.id}</span>
           <h4 class="suggestion-card-title">${recipe.name}</h4>
-          <p class="suggestion-time">⏱️ ${recipe.prepTime} min | 🍳 ${recipe.cuisine.join(', ')} | 🍽 ${recipe.dishType.join(', ')}</p>
+          <p class="suggestion-time">⏱️ ${recipe.prepTime} min | 🍳 ${recipe.cuisine.join(', ')}</p>
         </div>
       </div>
       <div class="meta-badges-row">
@@ -456,7 +456,7 @@ function openRecipeDetails(recipeId) {
   document.getElementById('modal-recipe-id').textContent = `#${recipe.id}`;
   document.getElementById('modal-recipe-name').textContent = recipe.name;
   document.getElementById('modal-recipe-time').textContent = `${recipe.prepTime} min`;
-  document.getElementById('modal-recipe-type').textContent = recipe.dishType ? recipe.dishType.join(', ') : '-';
+  document.getElementById('modal-recipe-type').textContent = Array.isArray(recipe.dishType) ? recipe.dishType.join(', ') : (recipe.dishType || '-');
   document.getElementById('modal-recipe-cuisine').textContent = recipe.cuisine.join(', ');
   document.getElementById('modal-recipe-seasons').textContent = recipe.seasons.join(', ');
   
