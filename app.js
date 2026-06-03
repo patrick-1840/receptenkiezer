@@ -1046,7 +1046,7 @@ function updateSyncStatusText() {
 async function syncWithCloud() {
 	alert(state.syncKey);
 	alert(state.syncApiKey);
-  const SYNC_BUCKET_ID = "https://kvdb.io/"+parsed.syncApiKey || '';
+  const SYNC_BUCKET_ID = "https://kvdb.io/";
   alert('bucket url'+SYNC_BUCKET_ID);
   if (!state.syncApiKey) {
     alert("Voer eerst een bucket ID in bij Instellingen om te kunnen synchroniseren.");
