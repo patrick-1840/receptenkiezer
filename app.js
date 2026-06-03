@@ -1044,10 +1044,10 @@ function updateSyncStatusText() {
 }
 
 async function syncWithCloud() {
-	alert(state.syncKey);
-	alert(state.syncApiKey);
-  const SYNC_BUCKET_ID = "https://kvdb.io/";
-  alert('bucket url'+SYNC_BUCKET_ID);
+  const SYNC_API_URL = 'https://kvdb.io/';
+  const SYNC_BUCKET_ID = state.syncApiKey;
+  alert('bucket url'+SYNC_BUCKET_url);
+  alert('bucket id'+SYNC_BUCKET_ID);
   if (!state.syncApiKey) {
     alert("Voer eerst een bucket ID in bij Instellingen om te kunnen synchroniseren.");
     return;
@@ -1064,8 +1064,6 @@ async function syncWithCloud() {
   btn.disabled = true;
   
   try {
-    const SYNC_API_URL = 'https://kvdb.io/';
-    const SYNC_BUCKET_ID = state.syncApiKey;
     const url = `${SYNC_API_URL}/${SYNC_BUCKET_ID}/${state.syncKey}`;
 	alert(url);
     
