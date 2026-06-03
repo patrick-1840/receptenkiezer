@@ -25,6 +25,7 @@ let state = {
 // Cloud Sync configuration
 //const SYNC_BUCKET_ID = "4NaY4FPKgfhiSxfFQwps68";
 const SYNC_BUCKET_ID = "https://kvdb.io/"+parsed.syncApiKey || '';
+alert('bucket');
 alert(SYNC_BUCKET_ID);
 //const SYNC_API_URL = state.syncKey;
 //"https://kvdb.io/4NaY4FPKgfhiSxfFQwps68"; // Unieke app bucket
