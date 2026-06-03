@@ -1,530 +1,1227 @@
-<!DOCTYPE html>
-<html lang="nl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Gezins Weekmenu & Recepten</title>
-  
-  <!-- SEO & PWA Meta Tags -->
-  <meta name="description" content="Een slimme iOS-stijl weekmenu planner en recepten kennisbank voor gezinnen. Inclusief vegetarische en moeilijke eter aanpassingen, automatische boodschappenlijst en cloud synchronisatie.">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#ff9500">
-  <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/patrick-1840/receptenkiezer/refs/heads/main/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/patrick-1840/receptenkiezer/refs/heads/main/favicon-32x32.png?raw=true">
-  <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/patrick-1840/receptenkiezer/refs/heads/main/favicon-16x16.png?raw=true">
-  <link rel="manifest" href="https://raw.githubusercontent.com/patrick-1840/receptenkiezer/refs/heads/main/site.webmanifest?raw=true">
-  
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  
-  <!-- Stylesheets -->
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
+// State management voor de Recepten & Menu App
+let state = {
+  recipes: [],
+  weekmenu: {
+    'Maandag': null,
+    'Dinsdag': null,
+    'Woensdag': null,
+    'Donderdag': null,
+    'Vrijdag': null,
+    'Zaterdag': null,
+    'Zondag': null
+  },
+  activeTab: 'menu',
+  activeFilters: {
+    seasons: [],
+    dishTypes: [],
+    cuisines: [],
+    time: 'all'
+  },
+  syncKey: '',
+  syncApiKey: '',
+  lastUpdated: 0,
+  shoppingListChecked: {} // key format: "itemName_isChecked"
+};
 
-  <!-- App Wrapper representing the iPhone Frame/Screen -->
-  <div id="app" class="ios-app">
+// Cloud Sync configuration
+//const SYNC_BUCKET_ID = "4NaY4FPKgfhiSxfFQwps68";
+//const SYNC_API_URL = state.syncKey;
+//"https://kvdb.io/4NaY4FPKgfhiSxfFQwps68"; // Unieke app bucket
+
+// Initialisatie bij het laden van de pagina
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  setupEventListeners();
+  switchTab(state.activeTab);
+  renderPlanner();
+  renderRecipesList();
+  
+  // Set default seasons for suggestion generator based on current month
+  setDefaultSuggestionFilters();
+});
+
+// ==========================================
+// DATA BEHEER & LOCALSTORAGE
+// ==========================================
+
+function loadData() {
+  const localData = localStorage.getItem('gezinsmenu_app_state');
+  if (localData) {
+    try {
+      const parsed = JSON.parse(localData);
+      state.recipes = parsed.recipes || [];
+      state.weekmenu = parsed.weekmenu || {
+        'Maandag': null, 'Dinsdag': null, 'Woensdag': null,
+        'Donderdag': null, 'Vrijdag': null, 'Zaterdag': null, 'Zondag': null
+      };
+      state.syncKey = parsed.syncKey || '';
+      state.syncApiKey = parsed.syncApiKey || '';
+      state.lastUpdated = parsed.lastUpdated || Date.now();
+      state.shoppingListChecked = parsed.shoppingListChecked || {};
+    } catch (e) {
+      console.error("Fout bij laden van local data, resetten naar standaard...", e);
+      loadSeedData();
+    }
+  } else {
+    loadSeedData();
+  }
+  
+  // Update Sync Key input in UI
+  const syncApiInput = document.getElementById('settings-sync-api-key');
+  const syncInput = document.getElementById('settings-sync-key');
+  if (syncInput) syncInput.value = state.syncKey;
+  if (syncApiInput) syncApiInput.value = state.syncApiKey;
+  syncWithCloud();
+  updateSyncStatusText();
+}
+
+function loadSeedData() {
+  if (typeof SEED_RECIPES !== 'undefined') {
+    state.recipes = [...SEED_RECIPES];
+  } else {
+    state.recipes = [];
+  }
+  state.weekmenu = {
+    'Maandag': null, 'Dinsdag': null, 'Woensdag': null,
+    'Donderdag': null, 'Vrijdag': null, 'Zaterdag': null, 'Zondag': null
+  };
+  state.shoppingListChecked = {};
+  state.lastUpdated = Date.now();
+  saveToLocalStorage();
+}
+
+function saveToLocalStorage() {
+  state.lastUpdated = Date.now();
+  localStorage.setItem('gezinsmenu_app_state', JSON.stringify({
+    recipes: state.recipes,
+    weekmenu: state.weekmenu,
+    syncKey: state.syncKey,
+    syncApiKey: state.syncApiKey,
+    lastUpdated: state.lastUpdated,
+    shoppingListChecked: state.shoppingListChecked
+  }));
+}
+
+// ==========================================
+// APP INTERACTIE & TABS
+// ==========================================
+
+function setupEventListeners() {
+  // Voeg scroll headers effect toe
+  const scrollContainers = document.querySelectorAll('.scroll-container');
+  scrollContainers.forEach(container => {
+    container.addEventListener('scroll', (e) => {
+      const header = container.previousElementSibling;
+      if (header && header.classList.contains('ios-header')) {
+        if (container.scrollTop > 10) {
+          header.classList.add('scrolled');
+        } else {
+          header.classList.remove('scrolled');
+        }
+      }
+    });
+  });
+  
+  // Zorg dat close modal werkt bij ESC toets
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeRecipeModal();
+      closeDaySelectorSheet();
+      closePlannerActionSheet();
+    }
+  });
+}
+
+function switchTab(tabId) {
+  state.activeTab = tabId;
+  
+  // Update tab buttons style
+  const tabItems = document.querySelectorAll('.tab-item');
+  tabItems.forEach((btn, index) => {
+    const tabs = ['menu', 'database', 'suggestions', 'add', 'settings'];
+    if (tabs[index] === tabId) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
+  // Update views visibility
+  const views = document.querySelectorAll('.tab-view');
+  views.forEach(view => {
+    view.classList.remove('active');
+  });
+  
+  const activeView = document.getElementById(`tab-${tabId}`);
+  if (activeView) {
+    activeView.classList.add('active');
     
-    <!-- Toast/Notification Banner -->
-    <div id="toast" class="ios-toast hidden">Recept toegevoegd!</div>
+    // Specifieke acties per geopende tab
+    if (tabId === 'menu') {
+      renderPlanner();
+    } else if (tabId === 'database') {
+      renderRecipesList();
+    }
+  }
+}
 
-    <!-- MAIN VIEWS (TABS) -->
-    <main id="main-content">
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.classList.remove('hidden');
+  
+  setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 2500);
+}
+
+// ==========================================
+// CALENDAR / WEEKMENU PLANNER
+// ==========================================
+
+let activePlannerDay = null; // Voor interactie met specifieke dag
+let activeRecipeForPlanning = null; // Recept geselecteerd om toe te voegen
+
+function renderPlanner() {
+  const container = document.getElementById('week-planner-list');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  const days = ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag', 'Zondag'];
+  
+  days.forEach(day => {
+    const recipeId = state.weekmenu[day];
+    const recipe = recipeId ? state.recipes.find(r => r.id === recipeId) : null;
+    
+    const row = document.createElement('div');
+    row.className = 'list-item';
+    
+    // Tap & Hold (Long Press) en Gewone klik opzet
+    let pressTimer;
+    const handleStart = () => {
+      pressTimer = setTimeout(() => {
+        triggerDayLongPress(day, recipe);
+      }, 600); // 600ms is standard iOS long-press duration
+    };
+    const handleEnd = () => {
+      clearTimeout(pressTimer);
+    };
+    
+    // Mouse en touch events voor long press
+    row.addEventListener('touchstart', handleStart);
+    row.addEventListener('touchend', handleEnd);
+    row.addEventListener('touchmove', handleEnd);
+    row.addEventListener('mousedown', handleStart);
+    row.addEventListener('mouseup', handleEnd);
+    row.addEventListener('mouseleave', handleEnd);
+    
+    if (recipe) {
+      // Ingevulde dag
+      row.innerHTML = `
+        <div class="list-item-left" onclick="openRecipeDetails(${recipe.id})">
+          <span class="list-item-day-title">${day}</span>
+          <div class="list-item-recipe-name">
+            <span class="recipe-id-badge">#${recipe.id}</span>
+            <span>${recipe.name}</span>
+          </div>
+          <div class="meta-badges-row">
+            <span class="badge blue">⏱️ ${recipe.prepTime} min</span>
+            <span class="badge orange">🍳 ${(recipe.dishType && recipe.dishType.length > 0) ? recipe.dishType.join(', ') : '-'}</span>
+            <span class="badge orange">🍳 ${recipe.cuisine.join(', ')}</span>
+          </div>
+        </div>
+        <div class="list-item-right">
+          <button class="delete-row-btn" onclick="event.stopPropagation(); clearDayMenu('${day}')" title="Wissen">
+            <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+          <div class="chevron-arrow"></div>
+        </div>
+      `;
+    } else {
+      // Lege dag
+      row.innerHTML = `
+        <div class="list-item-left" onclick="shortcutToSuggestions('${day}')">
+          <span class="list-item-day-title">${day}</span>
+          <div class="list-item-empty">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            <span>Kies een gerecht...</span>
+          </div>
+        </div>
+        <div class="list-item-right">
+          <div class="chevron-arrow"></div>
+        </div>
+      `;
+    }
+    
+    container.appendChild(row);
+  });
+  
+  // Render de boodschappenlijst behorend bij de geplande gerechten
+  renderShoppingList();
+}
+
+function clearDayMenu(day) {
+  state.weekmenu[day] = null;
+  saveToLocalStorage();
+  renderPlanner();
+  showToast(`${day} gewist uit menu`);
+}
+
+function shortcutToSuggestions(day) {
+  activePlannerDay = day;
+  switchTab('suggestions');
+}
+
+// Long press actie
+function triggerDayLongPress(day, recipe) {
+  if (!recipe) {
+    // Indien de dag leeg is, direct navigeren naar suggesties
+    shortcutToSuggestions(day);
+    return;
+  }
+  
+  activePlannerDay = day;
+  
+  // Open actiemenu
+  const sheet = document.getElementById('planner-action-sheet');
+  const title = document.getElementById('planner-action-title');
+  title.textContent = `${day}: ${recipe.name}`;
+  sheet.classList.remove('hidden');
+}
+
+function closePlannerActionSheet() {
+  document.getElementById('planner-action-sheet').classList.add('hidden');
+}
+
+function openRecipeDetailsFromPlannerSheet() {
+  closePlannerActionSheet();
+  const recipeId = state.weekmenu[activePlannerDay];
+  if (recipeId) openRecipeDetails(recipeId);
+}
+
+function goToSuggestionsFromPlannerSheet() {
+  closePlannerActionSheet();
+  switchTab('suggestions');
+}
+
+function clearDayFromPlannerSheet() {
+  closePlannerActionSheet();
+  if (activePlannerDay) clearDayMenu(activePlannerDay);
+}
+
+// ==========================================
+// SUGGESTIE GENERATOR & RECEPTENKIEZER
+// ==========================================
+
+function setDefaultSuggestionFilters() {
+  const currentMonth = new Date().getMonth(); // 0 = Jan, 5 = Jun
+  let currentSeason = "Alle";
+  
+  if (currentMonth >= 2 && currentMonth <= 4) currentSeason = "Lente";
+  else if (currentMonth >= 5 && currentMonth <= 7) currentSeason = "Zomer";
+  else if (currentMonth >= 8 && currentMonth <= 10) currentSeason = "Herfst";
+  else currentSeason = "Winter";
+  
+  // Set default checkbox status in generator form
+  const checkboxes = document.querySelectorAll('#suggestion-season-grid input');
+  checkboxes.forEach(cb => {
+    cb.checked = (cb.value === currentSeason || cb.value === "Alle");
+  });
+}
+
+function updateRangeLabel(val) {
+  document.getElementById('range-value-label').textContent = `${val} minuten`;
+}
+
+function generateSuggestions() {
+  // Haal filter instellingen op
+  const seasonCheckboxes = document.querySelectorAll('#suggestion-season-grid input:checked');
+  const selectedSeasons = Array.from(seasonCheckboxes).map(cb => cb.value);
+  
+  const dishTypeCheckboxes = document.querySelectorAll('#suggestion-dishType-grid input:checked');
+  const selectedDishTypes = Array.from(dishTypeCheckboxes).map(cb => cb.value);
+  
+  const cuisineCheckboxes = document.querySelectorAll('#suggestion-cuisine-grid input:checked');
+  const selectedCuisines = Array.from(cuisineCheckboxes).map(cb => cb.value);
+  
+  const maxTime = parseInt(document.getElementById('suggestion-max-time').value);
+  
+  // Filter recepten
+  let matches = state.recipes.filter(recipe => {
+    // Bereidingstijd filter
+    if (recipe.prepTime > maxTime) return false;
+    
+    // Keuken filter (recept moet minstens 1 van de geselecteerde keukens bevatten)
+    const hasDishType = recipe.dishType.some(c => selectedDishTypes.includes(c));
+    if (!hasDishType) return false;
+    
+    // Keuken filter (recept moet minstens 1 van de geselecteerde keukens bevatten)
+    const hasCuisine = recipe.cuisine.some(c => selectedCuisines.includes(c));
+    if (!hasCuisine) return false;
+    
+    // Seizoen filter (recept moet minstens 1 van de geselecteerde seizoenen bevatten)
+    const hasSeason = recipe.seasons.some(s => selectedSeasons.includes(s));
+    if (!hasSeason) return false;
+    
+    return true;
+  });
+  
+  const outputContainer = document.getElementById('suggestions-output-container');
+  const grid = document.getElementById('suggestions-grid');
+  grid.innerHTML = '';
+  
+  if (matches.length === 0) {
+    grid.innerHTML = `
+      <div class="ios-card text-center" style="grid-column: 1/-1; padding: 24px;">
+        <p class="empty-state">Geen gerechten gevonden die voldoen aan deze filters. Selecteer meer seizoenen of keukens of verhoog de bereidingstijd.</p>
+      </div>
+    `;
+    outputContainer.classList.remove('hidden');
+    return;
+  }
+  
+  // Pak 3 willekeurige gerechten uit de matches
+  let shuffled = matches.sort(() => 0.5 - Math.random());
+  let selected = shuffled.slice(0, 3);
+  
+  selected.forEach(recipe => {
+    const card = document.createElement('div');
+    card.className = 'suggestion-card';
+    
+    card.innerHTML = `
+      <div class="suggestion-card-header">
+        <div>
+          <span class="recipe-id-badge">#${recipe.id}</span>
+          <h4 class="suggestion-card-title">${recipe.name}</h4>
+          <p class="suggestion-time">⏱️ ${recipe.prepTime} min | 🍳 ${recipe.cuisine.join(', ')} | 🍽 ${recipe.dishType.join(', ')}</p>
+        </div>
+      </div>
+      <div class="meta-badges-row">
+        ${recipe.seasons.map(s => `<span class="badge">${s}</span>`).join('')}
+      </div>
+      <div class="suggestion-actions">
+        <button class="ios-button primary" style="padding: 10px; font-size: 14px;" onclick="openPlanActionSheet(${recipe.id})">Plan gerecht...</button>
+        <button class="ios-button secondary" style="padding: 10px; font-size: 14px;" onclick="openRecipeDetails(${recipe.id})">Details</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+  
+  outputContainer.classList.remove('hidden');
+  // Scroll rustig naar de resultaten
+  outputContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Action sheet voor dag planning
+function openPlanActionSheet(recipeId) {
+  activeRecipeForPlanning = recipeId;
+  const sheet = document.getElementById('day-selector-sheet');
+  sheet.classList.remove('hidden');
+}
+
+function closeDaySelectorSheet() {
+  document.getElementById('day-selector-sheet').classList.add('hidden');
+}
+
+function assignRecipeToDayFromSheet(day) {
+  if (!activeRecipeForPlanning) return;
+  
+  state.weekmenu[day] = activeRecipeForPlanning;
+  saveToLocalStorage();
+  closeDaySelectorSheet();
+  
+  // Toon succes en ga terug naar weekmenu
+  const recipe = state.recipes.find(r => r.id === activeRecipeForPlanning);
+  showToast(`${recipe.name} ingepland op ${day}`);
+  
+  // Reset selectie
+  activeRecipeForPlanning = null;
+  activePlannerDay = null;
+  
+  switchTab('menu');
+}
+
+// ==========================================
+// RECEPT DETAILS MODAL SHEET
+// ==========================================
+
+let activeModalRecipeId = null;
+
+function openRecipeDetails(recipeId) {
+  const recipe = state.recipes.find(r => r.id === recipeId);
+  if (!recipe) return;
+  
+  activeModalRecipeId = recipeId;
+  
+  // Vul modal elementen
+  document.getElementById('modal-recipe-id').textContent = `#${recipe.id}`;
+  document.getElementById('modal-recipe-name').textContent = recipe.name;
+  document.getElementById('modal-recipe-time').textContent = `${recipe.prepTime} min`;
+  document.getElementById('modal-recipe-type').textContent = recipe.dishType.join(', ');
+  document.getElementById('modal-recipe-cuisine').textContent = recipe.cuisine.join(', ');
+  document.getElementById('modal-recipe-seasons').textContent = recipe.seasons.join(', ');
+  
+  // Ingrediënten lijst
+  const ingList = document.getElementById('modal-ingredients-list');
+  ingList.innerHTML = '';
+  recipe.ingredients.forEach(ing => {
+    const li = document.createElement('li');
+    li.textContent = ing;
+    ingList.appendChild(li);
+  });
+  
+  // Bereidingstappen
+  const instContent = document.getElementById('modal-instructions-content');
+  instContent.textContent = recipe.instructions;
+  
+  // Aanpassingen gezin
+  document.getElementById('modal-recipe-veg').textContent = recipe.vegAdjustment || "Geen specifieke vegetarische aanpassing nodig.";
+  document.getElementById('modal-recipe-picky').textContent = recipe.pickyAdjustment || "Geen specifieke aanpassing voor de moeilijke eter nodig.";
+  
+  // Opmerkingen
+  const notesText = document.getElementById('modal-recipe-notes');
+  if (recipe.notes) {
+    notesText.textContent = recipe.notes;
+    notesText.parentElement.style.display = 'block';
+    notesText.parentElement.previousElementSibling.style.display = 'block'; // Title block
+  } else {
+    notesText.parentElement.style.display = 'none';
+    notesText.parentElement.previousElementSibling.style.display = 'none';
+  }
+  
+  // Toon modal
+  const modal = document.getElementById('recipe-modal');
+  modal.classList.remove('hidden');
+  
+  // Voorkom scrollen van achtergrond body op iOS
+  document.body.style.overflow = 'hidden';
+}
+
+function closeRecipeModal() {
+  const modal = document.getElementById('recipe-modal');
+  modal.classList.add('hidden');
+  document.body.style.overflow = '';
+  activeModalRecipeId = null;
+}
+
+function closeModalOnBackdrop(e) {
+  if (e.target.id === 'recipe-modal') {
+    closeRecipeModal();
+  }
+}
+
+function openPlanActionSheetFromModal() {
+  if (!activeModalRecipeId) return;
+  openPlanActionSheet(activeModalRecipeId);
+}
+
+function deleteRecipeFromModal() {
+  if (!activeModalRecipeId) return;
+  
+  const recipe = state.recipes.find(r => r.id === activeModalRecipeId);
+  if (confirm(`Weet je zeker dat je het recept "${recipe.name}" permanent wilt verwijderen?`)) {
+    // Verwijder uit recepten
+    state.recipes = state.recipes.filter(r => r.id !== activeModalRecipeId);
+    
+    // Verwijder uit weekplanner indien ingepland
+    for (let day in state.weekmenu) {
+      if (state.weekmenu[day] === activeModalRecipeId) {
+        state.weekmenu[day] = null;
+      }
+    }
+    
+    saveToLocalStorage();
+    closeRecipeModal();
+    showToast("Recept verwijderd");
+    
+    // Re-render
+    renderRecipesList();
+    renderPlanner();
+  }
+  syncWithCloud();
+}
+
+// ==========================================
+// KENNISBANK OVERZICHT & ZOEKEN
+// ==========================================
+
+function toggleFilter(btn) {
+  const type = btn.getAttribute('data-type');
+  const value = btn.getAttribute('data-value');
+  
+  btn.classList.toggle('active');
+  
+  const list = type === 'season' ? state.activeFilters.seasons : state.activeFilters.cuisines;
+  const index = list.indexOf(value);
+  
+  if (index > -1) {
+    list.splice(index, 1);
+  } else {
+    list.push(value);
+  }
+  
+  renderRecipesList();
+}
+
+function selectTimeFilter(btn, timeVal) {
+  // Deactiveer andere tijdsfilters
+  const buttons = document.querySelectorAll('#filter-times .pill-button');
+  buttons.forEach(b => b.classList.remove('active'));
+  
+  btn.classList.add('active');
+  state.activeFilters.time = timeVal;
+  
+  renderRecipesList();
+}
+
+function clearSearch() {
+  const searchInput = document.getElementById('recipe-search');
+  searchInput.value = '';
+  document.getElementById('search-clear-btn').classList.add('hidden');
+  renderRecipesList();
+}
+
+function filterRecipes() {
+  const query = document.getElementById('recipe-search').value.trim();
+  const clearBtn = document.getElementById('search-clear-btn');
+  
+  if (query.length > 0) {
+    clearBtn.classList.remove('hidden');
+  } else {
+    clearBtn.classList.add('hidden');
+  }
+  
+  renderRecipesList();
+}
+
+function renderRecipesList() {
+  const container = document.getElementById('recipes-list-container');
+  const title = document.getElementById('recipe-list-title');
+  if (!container) return;
+  
+  const searchQuery = document.getElementById('recipe-search').value.toLowerCase().trim();
+  
+  // Filter recepten op basis van filters én spotlight-zoekopdracht
+  let filtered = state.recipes.filter(recipe => {
+    
+    // 1. Spotlight Search (zoekt op naam, ingrediënten en uniek ID)
+    if (searchQuery.length > 0) {
+      const idMatch = `#${recipe.id}`.includes(searchQuery) || String(recipe.id).includes(searchQuery);
+      const nameMatch = recipe.name.toLowerCase().includes(searchQuery);
+      const ingredientMatch = recipe.ingredients.some(ing => ing.toLowerCase().includes(searchQuery));
       
-      <!-- TAB 1: WEEKMENU -->
-      <section id="tab-menu" class="tab-view active">
-        <header class="ios-header">
-          <div class="header-large-title">
-            <span class="subtitle">Gezinsplanning</span>
-            <h1>Mijn Weekmenu</h1>
-          </div>
-        </header>
-        
-        <div class="scroll-container">
-          <!-- Calendar List (Grouped Table View) -->
-          <div class="ios-list-group-title">Weekplanner</div>
-          <div class="ios-list-group" id="week-planner-list">
-            <!-- Dynamically populated days Monday-Sunday -->
-          </div>
-          
-          <!-- Shopping List Section -->
-          <div class="ios-list-group-title flex-title">
-            <span>Boodschappenlijst</span>
-            <button id="btn-copy-shopping" class="text-button" onclick="copyShoppingList()">Deel lijst</button>
-          </div>
-          <div class="ios-card shopping-list-card">
-            <div id="shopping-list-container">
-              <!-- Dynamically aggregated ingredients -->
-              <p class="empty-state">Kies gerechten in het menu om automatisch een boodschappenlijst te genereren.</p>
-            </div>
-          </div>
-          
-          <div style="height: 100px;"></div> <!-- Bottom spacer -->
+      if (!idMatch && !nameMatch && !ingredientMatch) {
+        return false;
+      }
+    }
+    
+    // 2. Seizoenen filter
+    if (state.activeFilters.seasons.length > 0) {
+      const hasSeason = recipe.seasons.some(s => state.activeFilters.seasons.includes(s));
+      if (!hasSeason) return false;
+    }
+    
+    // 3. dishTypes filter
+	if (state.activeFilters.dishTypes.length > 0) {
+		const hasMatch = recipe.dishType.some(d => state.activeFilters.dishTypes.includes(d));
+		if (!hasMatch) return false;
+	}
+    
+    // 3. Keukens filter
+    if (state.activeFilters.cuisines.length > 0) {
+      const hasCuisine = recipe.cuisine.some(c => state.activeFilters.cuisines.includes(c));
+      if (!hasCuisine) return false;
+    }
+    
+    // 4. Tijd filter
+    if (state.activeFilters.time !== 'all') {
+      const maxTime = parseInt(state.activeFilters.time);
+      if (recipe.prepTime > maxTime) return false;
+    }
+    
+    return true;
+  });
+  
+  title.textContent = `Resultaten (${filtered.length})`;
+  container.innerHTML = '';
+  
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <p class="empty-state">Geen recepten gevonden in de kennisbank. Voeg een nieuw recept toe of wis de zoekfilters.</p>
+    `;
+    return;
+  }
+  
+  // Sorteer op ID descending zodat nieuwste recepten bovenaan staan
+  filtered.sort((a, b) => b.id - a.id);
+  
+  filtered.forEach(recipe => {
+    const item = document.createElement('button');
+    item.className = 'list-item';
+    item.onclick = () => openRecipeDetails(recipe.id);
+    
+    item.innerHTML = `
+      <div class="list-item-left">
+        <div class="list-item-recipe-name">
+          <span class="recipe-id-badge">#${recipe.id}</span>
+          <span>${recipe.name}</span>
         </div>
-      </section>
-
-      <!-- TAB 2: KENNISBANK -->
-      <section id="tab-database" class="tab-view">
-        <header class="ios-header">
-          <div class="header-large-title">
-            <span class="subtitle">Kennisbank</span>
-            <h1>Recepten</h1>
-          </div>
-          <!-- Spotlight Search Bar -->
-          <div class="search-bar-wrapper">
-            <div class="search-input-container">
-              <svg class="search-icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-              <input type="text" id="recipe-search" placeholder="Zoek op naam, ingrediënt of nummer (#1001)..." oninput="filterRecipes()">
-              <button id="search-clear-btn" class="clear-button hidden" onclick="clearSearch()">&times;</button>
-            </div>
-          </div>
-        </header>
-
-        <div class="scroll-container">
-          <!-- Filters Section -->
-          <div class="filter-pills-container">
-            <div class="filter-section-title">Filteren op seizoenen</div>
-            <div class="filter-scroll" id="filter-seasons">
-              <button class="pill-button" data-type="season" data-value="Lente" onclick="toggleFilter(this)">🌸 Lente</button>
-              <button class="pill-button" data-type="season" data-value="Zomer" onclick="toggleFilter(this)">☀️ Zomer</button>
-              <button class="pill-button" data-type="season" data-value="Herfst" onclick="toggleFilter(this)">🍁 Herfst</button>
-              <button class="pill-button" data-type="season" data-value="Winter" onclick="toggleFilter(this)">❄️ Winter</button>
-            </div>
-            
-            <div class="filter-section-title" style="margin-top: 8px;">Filteren op gerecht</div>
-            <div class="filter-scroll" id="filter-cuisines">
-				<button class="pill-button" data-type="dishType" data-value="Voorgerecht" onclick="toggleFilter(this)">🥗 Voorgerecht</button>
-				<button class="pill-button" data-type="dishType" data-value="Hoofdgerecht" onclick="toggleFilter(this)">🍽️ Hoofdgerecht</button>
-				<button class="pill-button" data-type="dishType" data-value="Dessert" onclick="toggleFilter(this)">🍰 Dessert</button>
-				<button class="pill-button" data-type="dishType" data-value="Soep" onclick="toggleFilter(this)">🥣 Soep</button>
-			  </div>
-
-            <div class="filter-section-title" style="margin-top: 8px;">Filteren op keuken</div>
-            <div class="filter-scroll" id="filter-cuisines">
-              <button class="pill-button" data-type="cuisine" data-value="Italiaans" onclick="toggleFilter(this)">🍕 Italiaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Aziatisch" onclick="toggleFilter(this)">🥢 Aziatisch</button>
-              <button class="pill-button" data-type="cuisine" data-value="Mexicaans" onclick="toggleFilter(this)">🌮 Mexicaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Belgisch" onclick="toggleFilter(this)">🥔 Belgisch</button>
-              <button class="pill-button" data-type="cuisine" data-value="Spaans" onclick="toggleFilter(this)">🥘 Spaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Frans" onclick="toggleFilter(this)">🥐 Frans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Chinees" onclick="toggleFilter(this)">🥡 Chinees</button>
-              <button class="pill-button" data-type="cuisine" data-value="Amerikaans" onclick="toggleFilter(this)">🍔 Amerikaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Overig" onclick="toggleFilter(this)">🍲 Overig</button>
-            </div>
-            
-            <div class="filter-section-title" style="margin-top: 8px;">Bereidingstijd</div>
-            <div class="filter-scroll" id="filter-times">
-              <button class="pill-button" data-type="time" data-value="15" onclick="selectTimeFilter(this, 15)">&lt; 15 min</button>
-              <button class="pill-button" data-type="time" data-value="30" onclick="selectTimeFilter(this, 30)">&lt; 30 min</button>
-              <button class="pill-button" data-type="time" data-value="45" onclick="selectTimeFilter(this, 45)">&lt; 45 min</button>
-              <button class="pill-button" data-type="time" data-value="60" onclick="selectTimeFilter(this, 60)">&lt; 60 min</button>
-              <button class="pill-button" data-type="time" data-value="all" onclick="selectTimeFilter(this, 'all')">Alle tijden</button>
-            </div>
-          </div>
-
-          <!-- Recipe List -->
-          <div class="ios-list-group-title" id="recipe-list-title">Alle Recepten (0)</div>
-          <div class="ios-list-group" id="recipes-list-container">
-            <!-- Dynamically populated with recipe items -->
-          </div>
-          
-          <div style="height: 100px;"></div>
+        <div class="meta-badges-row">
+          <span class="badge blue">⏱️ ${recipe.prepTime} min</span>
+          <span class="badge orange">🍽 ${(recipe.dishType && recipe.dishType.length > 0) ? recipe.dishType.join(', ') : '-'}</span>
+          <span class="badge orange">🍳 ${recipe.cuisine.join(', ')}</span>
+          ${recipe.seasons.map(s => `<span class="badge">${s}</span>`).join('')}
         </div>
-      </section>
+      </div>
+      <div class="list-item-right">
+        <div class="chevron-arrow"></div>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
 
-      <!-- TAB 3: SUGGESTIES (RECEPTENKIEZER) -->
-      <section id="tab-suggestions" class="tab-view">
-        <header class="ios-header">
-          <div class="header-large-title">
-            <span class="subtitle">Willekeurige gerechten</span>
-            <h1>Receptenkiezer</h1>
-          </div>
-        </header>
+// ==========================================
+// TOEVOEGEN VAN NIEUW RECEPT
+// ==========================================
 
-        <div class="scroll-container">
-          <!-- Suggestion Configuration Card -->
-          <div class="ios-card selector-config-card">
-            <h3>Filters voor suggesties</h3>
-            <p class="card-desc">Stel de criteria in om 3 willekeurige recepten te genereren.</p>
-            
-            <div class="form-row">
-              <label>Seizoen</label>
-              <div class="checkbox-pill-grid" id="suggestion-season-grid">
-                <label class="pill-checkbox"><input type="checkbox" value="Lente" checked><span>🌸 Lente</span></label>
-                <label class="pill-checkbox"><input type="checkbox" value="Zomer" checked><span>☀️ Zomer</span></label>
-                <label class="pill-checkbox"><input type="checkbox" value="Herfst" checked><span>🍁 Herfst</span></label>
-                <label class="pill-checkbox"><input type="checkbox" value="Winter" checked><span>❄️ Winter</span></label>
-              </div>
-            </div>
+function resetRecipeForm() {
+  document.getElementById('add-recipe-form').reset();
+  showToast("Invoer gewist");
+}
 
-				<div class="form-row">
-				  <label>Soort gerecht</label>
-				  <div class="checkbox-pill-grid" id="suggestion-dishType-grid">
-					<label class="pill-checkbox"><input type="checkbox" value="Voorgerecht"><span>🥗 Voorgerecht</span></label>
-					<label class="pill-checkbox"><input type="checkbox" value="Soep"><span>🥣 Soep</span></label>
-					<label class="pill-checkbox"><input type="checkbox" value="Hoofdgerecht" checked><span>🍽️ Hoofdgerecht</span></label>
-					<label class="pill-checkbox"><input type="checkbox" value="Dessert"><span>🍰 Dessert</span></label>
-				  </div>
-				</div>
+function saveNewRecipe(event) {
+  event.preventDefault();
+  
+  const name = document.getElementById('form-name').value.trim();
+  const prepTime = parseInt(document.getElementById('form-prep-time').value);
+  
+  // Seizoenen multi-select
+  const seasonCbs = document.querySelectorAll('input[name="form-seasons"]:checked');
+  const seasons = Array.from(seasonCbs).map(cb => cb.value);
+  
+  // Dish type multi-select
+	const dishTypeElement = document.querySelector('input[name="form-dish"]:checked');
+    const dishType = dishTypeElement ? dishTypeElement.value : null;
+  
+  // Keukens multi-select
+  const cuisineCbs = document.querySelectorAll('input[name="form-cuisine"]:checked');
+  const cuisine = Array.from(cuisineCbs).map(cb => cb.value);
+  
+  // Input verificatie
+  if (seasons.length === 0) {
+    alert("Selecteer ten minste één geschikt seizoen.");
+    return;
+  }
+ if (!dishType) { 
+  alert("Selecteer een soort gerecht.");
+  return;
+}
+  if (cuisine.length === 0) {
+    alert("Selecteer ten minste één keuken.");
+    return;
+  }
+  
+  const rawIngredients = document.getElementById('form-ingredients').value;
+  const ingredients = rawIngredients
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+    
+  const instructions = document.getElementById('form-instructions').value.trim();
+  const vegAdjustment = document.getElementById('form-veg-adj').value.trim();
+  const pickyAdjustment = document.getElementById('form-picky-adj').value.trim();
+  const notes = document.getElementById('form-notes').value.trim();
+  
+  // Bepaal uniek oplopend ID (minimaal 1001)
+  const maxId = state.recipes.reduce((max, r) => r.id > max ? r.id : max, 1000);
+  const newId = maxId + 1;
+  
+  const newRecipe = {
+    id: newId,
+    name,
+	dishType,
+    cuisine,
+    prepTime,
+    seasons,
+    ingredients,
+    instructions,
+    vegAdjustment,
+    pickyAdjustment,
+    notes
+  };
+  
+  state.recipes.push(newRecipe);
+  saveToLocalStorage();
+  syncWithCloud();
+  
+  // Formulier resetten en succes tonen
+  document.getElementById('add-recipe-form').reset();
+  showToast(`Recept #${newId} succesvol opgeslagen!`);
+  
+  // Direct openen ter controle
+  openRecipeDetails(newId);
+}
 
-            <div class="form-row">
-              <label>Keuken</label>
-              <div class="checkbox-pill-grid" id="suggestion-cuisine-grid">
-              <button class="pill-button" data-type="cuisine" data-value="Italiaans" checked">🍕 Italiaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Aziatisch" checked">🥢 Aziatisch</button>
-              <button class="pill-button" data-type="cuisine" data-value="Mexicaans" checked">🌮 Mexicaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Belgisch" checked">🥔 Belgisch</button>
-              <button class="pill-button" data-type="cuisine" data-value="Spaans" checked">🥘 Spaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Frans" checked">🥐 Frans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Chinees" checked">🥡 Chinees</button>
-              <button class="pill-button" data-type="cuisine" data-value="Amerikaans" checked">🍔 Amerikaans</button>
-              <button class="pill-button" data-type="cuisine" data-value="Overig" checked">🍲 Overig</button>
-              </div>
-            </div>
+// ==========================================
+// AUTOMATISCHE BOODSCHAPPENLIJST & PARSING
+// ==========================================
 
-            <div class="form-row">
-              <label for="suggestion-max-time">Maximale bereidingstijd (minuten)</label>
-              <div class="range-slider-container">
-                <input type="range" id="suggestion-max-time" min="15" max="90" step="5" value="60" oninput="updateRangeLabel(this.value)">
-                <span id="range-value-label">60 minuten</span>
-              </div>
-            </div>
-
-            <button class="ios-button primary" onclick="generateSuggestions()">Genereer 3 Recepten</button>
-          </div>
-
-          <!-- Suggestions Display Area -->
-          <div id="suggestions-output-container" class="hidden">
-            <div class="ios-list-group-title flex-title">
-              <span>Voorgestelde gerechten</span>
-              <button class="text-button" onclick="generateSuggestions()">Opnieuw genereren</button>
-            </div>
-            
-            <div class="suggestions-cards-grid" id="suggestions-grid">
-              <!-- 3 recipe suggestion cards will be injected here -->
-            </div>
-          </div>
-
-          <div style="height: 100px;"></div>
-        </div>
-      </section>
-
-      <!-- TAB 4: NIEUW RECEPT -->
-      <section id="tab-add" class="tab-view">
-        <header class="ios-header">
-          <div class="header-large-title">
-            <span class="subtitle">Kennisbank uitbreiden</span>
-            <h1>Nieuw Recept</h1>
-          </div>
-        </header>
-
-        <div class="scroll-container">
-          <form id="add-recipe-form" onsubmit="saveNewRecipe(event)">
-            
-            <div class="ios-card form-card">
-              <div class="form-group">
-                <label for="form-name">Naam Recept <span class="required">*</span></label>
-                <input type="text" id="form-name" required placeholder="Bijv. Romige Pasta Carbonara">
-              </div>
-
-              <div class="form-group">
-                <label for="form-prep-time">Bereidingstijd (minuten) <span class="required">*</span></label>
-                <input type="number" id="form-prep-time" required min="1" max="300" placeholder="Bijv. 25">
-              </div>
-            </div>
-
-            <div class="ios-list-group-title">Seizoenen (Kies alle geschikte seizoenen)</div>
-            <div class="ios-card form-card">
-              <div class="checkbox-pill-grid form-grid">
-                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Lente"><span>🌸 Lente</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Zomer"><span>☀️ Zomer</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Herfst"><span>🍁 Herfst</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-seasons" value="Winter"><span>❄️ Winter</span></label>
-              </div>
-            </div>
-			
-			  
-			<div class="ios-list-group-title">Gerecht</div>
-			<div class="ios-card form-card">
-			  <div class="checkbox-pill-grid form-grid">
-				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Voorgerecht" required><span>🥗 Voorgerecht</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Soep" required><span>🥣 Soep</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Hoofdgerecht" required><span>🍽️ Hoofdgerecht</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Dessert" required><span>🍰 Dessert</span></label>
-			  </div>
-			</div>
-
-            <div class="ios-list-group-title">Keuken</div>
-            <div class="ios-card form-card">
-              <div class="checkbox-pill-grid form-grid">
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Italiaans"><span>🍕 Italiaans</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Aziatisch"><span>🥢 Aziatisch</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Mexicaans"><span>🌮 Mexicaans</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Belgisch"><span>🥔 Belgisch</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Spaans"><span>🥘 Spaans</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Frans"><span>🥐 Frans</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Chinees"><span>🥡 Chinees</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Amerikaans"><span>🍔 Amerikaans</span></label>
-                <label class="pill-checkbox"><input type="checkbox" name="form-cuisine" value="Overig"><span>🍲 Overig</span></label>
-              </div>
-            </div>
-
-            <div class="ios-list-group-title">Ingrediënten (1 per regel)</div>
-            <div class="ios-card form-card">
-              <div class="form-group">
-                <textarea id="form-ingredients" rows="8" placeholder="Bijv:&#10;300g penne&#10;1x komkommer&#10;150g gerookte spekjes&#10;2 dl room" required></textarea>
-                <p class="input-tip">Tip: Zet de hoeveelheid vooraan (bijv. '2 stuks wortelen' of '300g kaas') voor een correcte boodschappenlijst.</p>
-              </div>
-            </div>
-
-            <div class="ios-list-group-title">Bereidingswijze</div>
-            <div class="ios-card form-card">
-              <div class="form-group">
-                <textarea id="form-instructions" rows="8" placeholder="Beschrijf stapsgewijs hoe je dit gerecht bereidt..." required></textarea>
-              </div>
-            </div>
-
-            <div class="ios-list-group-title">Gezinsaanpassingen</div>
-            <div class="ios-card form-card">
-              <div class="form-group">
-                <label for="form-veg-adj">Voor de vegetariër (1 persoon)</label>
-                <textarea id="form-veg-adj" rows="3" placeholder="Bijv. Vervang de spekjes door vegetarische spekreepjes en bak deze apart."></textarea>
-              </div>
-              <div class="form-group border-top">
-                <label for="form-picky-adj">Voor de moeilijke eter (1 persoon)</label>
-                <textarea id="form-picky-adj" rows="3" placeholder="Bijv. Houd een portie pasta apart zonder de saus en serveer met komkommerschijfjes."></textarea>
-              </div>
-            </div>
-
-            <div class="ios-list-group-title">Algemene Opmerkingen</div>
-            <div class="ios-card form-card">
-              <div class="form-group">
-                <textarea id="form-notes" rows="3" placeholder="Handige tips, serveersuggesties of favoriete variaties..."></textarea>
-              </div>
-            </div>
-
-            <div class="form-actions-container">
-              <button type="submit" class="ios-button primary">Recept Opslaan</button>
-              <button type="button" class="ios-button secondary" onclick="resetRecipeForm()">Invoer wissen</button>
-            </div>
-            
-          </form>
-          <div style="height: 100px;"></div>
-        </div>
-      </section>
-
-      <!-- TAB 5: INSTELLINGEN -->
-      <section id="tab-settings" class="tab-view">
-        <header class="ios-header">
-          <div class="header-large-title">
-            <span class="subtitle">App configuratie</span>
-            <h1>Instellingen</h1>
-          </div>
-        </header>
-
-        <div class="scroll-container">
-          
-          <!-- Cloud Synchronization -->
-          <div class="ios-list-group-title">Gezinssynchronisatie (Cloud)</div>
-          <div class="ios-card settings-card">
-            <p class="settings-info-text">Typ hieronder een unieke gezinscode. Gebruik dezelfde code op de telefoons van andere gezinsleden om recepten en het weekmenu direct met elkaar te delen.</p>
-            <div class="form-group">
-              <label for="settings-sync-api-key">Bucket ID van kvdb.io</label>
-              <input type="text" id="settings-sync-api-key" placeholder="Genereer je eigen bucket ID op de website" onchange="saveSyncApiKey()">
-            </div>
-            <div class="form-group">
-              <label for="settings-sync-key">Unieke Gezins-code</label>
-              <input type="text" id="settings-sync-key" placeholder="Bijv: familie-smit-menu-2026" onchange="saveSyncKey()">
-            </div>
-            
-            <div class="sync-actions-row">
-              <button id="btn-sync" class="ios-button primary" onclick="syncWithCloud()">Synchroniseer Nu</button>
-            </div>
-            <p id="sync-status-msg" class="sync-status-offline">Niet gesynchroniseerd (lokaal actief)</p>
-          </div>
-
-          <!-- Data Management -->
-          <div class="ios-list-group-title">Back-up & Im-/Export</div>
-          <div class="ios-card settings-card">
-            <button class="ios-button secondary-light" onclick="exportData()">Exporteer Data (JSON)</button>
-            <div style="height: 10px;"></div>
-            
-            <label for="import-file" class="custom-file-upload ios-button secondary-light">
-              <span>Importeer Data (JSON)</span>
-              <input type="file" id="import-file" accept=".json" onchange="importData(event)">
-            </label>
-          </div>
-
-          <div class="ios-list-group-title">Systeem</div>
-          <div class="ios-card settings-card">
-            <button class="ios-button danger-light" onclick="confirmResetToSeed()">Reset naar Fabrieksinstellingen</button>
-            <p class="danger-tip">Waarschuwing: Hiermee wis je al je handmatig ingevoerde recepten en je weekplanning.</p>
-          </div>
-
-          <div class="about-version">
-            <p>Gezins Recepten & Menu App v1.2</p>
-            <p>Ontworpen voor iOS in HTML5/CSS3/Vanilla JS</p>
-          </div>
-
-          <div style="height: 100px;"></div>
-        </div>
-      </section>
-
-    </main>
-
-    <!-- TAB BAR (iOS Bottom Navigation) -->
-    <nav class="ios-tab-bar">
+function renderShoppingList() {
+  const container = document.getElementById('shopping-list-container');
+  if (!container) return;
+  
+  // Verzamel alle ingrediënten uit het actieve weekmenu
+  let activeRecipes = [];
+  for (let day in state.weekmenu) {
+    const id = state.weekmenu[day];
+    if (id) {
+      const recipe = state.recipes.find(r => r.id === id);
+      if (recipe) activeRecipes.push(recipe);
+    }
+  }
+  
+  if (activeRecipes.length === 0) {
+    container.innerHTML = `
+      <p class="empty-state">Kies gerechten in het menu om automatisch een boodschappenlijst te genereren.</p>
+    `;
+    return;
+  }
+  
+  let aggregated = {};
+  
+  activeRecipes.forEach(recipe => {
+    recipe.ingredients.forEach(line => {
+      const parsed = parseIngredient(line);
+      if (!parsed) return;
       
-      <button class="tab-item active" onclick="switchTab('menu')">
-        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zm-7 5h5v5h-5z"/></svg>
-        <span class="tab-label">Weekmenu</span>
-      </button>
+      const key = `${parsed.name.toLowerCase()}_${parsed.unit}`;
+      if (aggregated[key]) {
+        aggregated[key].quantity += parsed.quantity;
+      } else {
+        aggregated[key] = {
+          name: parsed.name,
+          unit: parsed.unit,
+          quantity: parsed.quantity
+        };
+      }
+    });
+  });
+  
+  // Categoriseer de ingrediënten voor een overzichtelijkere indeling
+  const categoryDefinition = {
+    'Aardappels, Groenten & Fruit': ['wortel', 'wortelen', 'komkommer', 'tomaat', 'tomaten', 'cherrytomaat', 'cherrytomaatjes', 'courgette', 'paprika', 'sla', 'ijsbergsla', 'rucola', 'ui', 'uien', 'knoflook', 'boerenkool', 'citroen', 'avocado', 'peterselie', 'koriander'],
+    'Zuivel, Kaas & Ei': ['kaas', 'cheddar', 'mozzarella', 'melk', 'crème', 'creme', 'fraîche', 'fraiche', 'boter', 'room', 'slagroom', 'kwark', 'yoghurt', 'ei', 'eieren'],
+    'Vlees, Vis & Vega': ['kip', 'kipfilet', 'kipreepjes', 'rookworst', 'spek', 'spekjes', 'spekreepjes', 'gehakt', 'rundergehakt', 'veggie', 'vegetarisch', 'tofu', 'spekblokjes'],
+    'Voorraadkast & Kruiden': ['pasta', 'penne', 'lasagne', 'lasagnebladen', 'rijst', 'basmatirijst', 'tandoori', 'pesto', 'pijnboom', 'pijnboompitten', 'bloem', 'kruiden', 'zout', 'peper', 'olie', 'zonnebloemolie', 'olijfolie', 'azijn', 'taco', 'taco\'s', 'mais', 'maïs', 'kidneybonen', 'bonen', 'salsa', 'saus', 'suiker', 'bouillon']
+  };
+  
+  let categorized = {
+    'Aardappels, Groenten & Fruit': [],
+    'Zuivel, Kaas & Ei': [],
+    'Vlees, Vis & Vega': [],
+    'Voorraadkast & Kruiden': [],
+    'Overig': []
+  };
+  
+  Object.values(aggregated).forEach(item => {
+    let matchedCat = 'Overig';
+    const lowerName = item.name.toLowerCase();
+    
+    for (let cat in categoryDefinition) {
+      const keywords = categoryDefinition[cat];
+      const hasMatch = keywords.some(keyword => lowerName.includes(keyword));
+      if (hasMatch) {
+        matchedCat = cat;
+        break;
+      }
+    }
+    
+    categorized[matchedCat].push(item);
+  });
+  
+  // Render de lijst
+  container.innerHTML = '';
+  
+  for (let cat in categorized) {
+    const list = categorized[cat];
+    if (list.length === 0) continue;
+    
+    // Sorteer alfabetisch
+    list.sort((a, b) => a.name.localeCompare(b.name));
+    
+    const catTitle = document.createElement('div');
+    catTitle.className = 'shopping-cat-title';
+    catTitle.textContent = cat;
+    container.appendChild(catTitle);
+    
+    list.forEach(item => {
+      const row = document.createElement('div');
+      
+      const itemKey = `${item.name.toLowerCase()}_${item.unit}`;
+      const isChecked = state.shoppingListChecked[itemKey] || false;
+      
+      row.className = `shopping-item ${isChecked ? 'checked' : ''}`;
+      
+      // Bepaal de weergave van het aantal
+      let displayQty = "";
+      if (item.unit === 'x') {
+        displayQty = `${item.quantity}x`;
+      } else {
+        // Mooi afronden indien decimaal
+        const roundedQty = Math.round(item.quantity * 100) / 100;
+        displayQty = `${roundedQty}${item.unit}`;
+      }
+      
+      // Let op: aantal moet VOORAAN staan (e.g. 2x wortel of 500g pasta)
+      row.innerHTML = `
+        <div class="shopping-checkbox">
+          <div class="shopping-checkbox-tick"></div>
+        </div>
+        <span class="shopping-amount">${displayQty}</span>
+        <span class="shopping-name">${item.name}</span>
+      `;
+      
+      row.onclick = () => {
+        const checkedState = !state.shoppingListChecked[itemKey];
+        state.shoppingListChecked[itemKey] = checkedState;
+        row.classList.toggle('checked', checkedState);
+        saveToLocalStorage();
+      };
+      
+      container.appendChild(row);
+    });
+  }
+}
 
-      <button class="tab-item" onclick="switchTab('database')">
-        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
-        <span class="tab-label">Kennisbank</span>
-      </button>
+// Slimme ingrediënten parser
+function parseIngredient(line) {
+  line = line.trim();
+  if (!line) return null;
+  
+  // Clean common prefixes
+  line = line.replace(/^(en\s+|of\s+)/i, '');
 
-      <button class="tab-item" onclick="switchTab('suggestions')">
-        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm1 14h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-        <span class="tab-label">Suggesties</span>
-      </button>
+  // Ondersteunde eenheden
+  const units = ['g', 'gr', 'gram', 'kg', 'kilo', 'ml', 'l', 'liter', 'dl', 'el', 'eetlepels', 'eetlepel', 'tl', 'theelepels', 'theelepel', 'stuks', 'stk', 'pot', 'potten', 'blik', 'blikjes', 'blikje', 'blikken', 'bol', 'bollen', 'krop', 'kroppen', 'teentjes', 'teentje', 'zakje', 'zakjes', 'pak', 'pakken', 'plakjes', 'plakje'];
+  
+  // Matches getallen, kommagetallen en breuken (bijv. 1/2, 1.5, 300, 1½, ½)
+  const numRegex = /^(\d+[\d\/\.\s-]*|½|⅓|¼|¾|1½|2½)/;
+  const numMatch = line.match(numRegex);
+  
+  let quantity = 1;
+  let unit = 'x';
+  let name = line;
+  
+  if (numMatch) {
+    let numStr = numMatch[1].trim();
+    quantity = parseFraction(numStr);
+    let remaining = line.substring(numMatch[0].length).trim();
+    
+    // Controleer of het eerstvolgende woord een bekende eenheid is
+    const firstWordMatch = remaining.match(/^([a-zA-Z]+)/);
+    if (firstWordMatch) {
+      const word = firstWordMatch[1].toLowerCase();
+      if (units.includes(word)) {
+        unit = word;
+        name = remaining.substring(word.length).trim();
+      } else {
+        name = remaining;
+        unit = 'x';
+      }
+    } else {
+      name = remaining;
+      unit = 'x';
+    }
+  } else {
+    // Geen getal aan de start, default naar 1 stuk
+    quantity = 1;
+    unit = 'x';
+    name = line;
+  }
+  
+  // Normaliseer eenheid naar kortere versies voor samenvoeging
+  if (unit === 'gr' || unit === 'gram') unit = 'g';
+  if (unit === 'kilo') unit = 'kg';
+  if (unit === 'liter') unit = 'l';
+  if (unit === 'blikje' || unit === 'blikken') unit = 'blik';
+  if (unit === 'bollen') unit = 'bol';
+  if (unit === 'zakjes') unit = 'zakje';
+  
+  name = cleanIngredientName(name);
+  
+  return { quantity, unit, name };
+}
 
-      <button class="tab-item" onclick="switchTab('add')">
-        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-        <span class="tab-label">Nieuw</span>
-      </button>
+function parseFraction(str) {
+  str = str.replace(/½/g, ' 0.5').replace(/⅓/g, ' 0.33').replace(/¼/g, ' 0.25').replace(/¾/g, ' 0.75');
+  str = str.trim();
+  
+  if (str.includes('/')) {
+    const parts = str.split('/');
+    if (parts.length === 2) {
+      return parseFloat(parts[0]) / parseFloat(parts[1]);
+    }
+  }
+  
+  if (str.includes(' ')) {
+    const parts = str.split(/\s+/);
+    return parts.reduce((sum, p) => sum + parseFloat(p || 0), 0);
+  }
+  
+  return parseFloat(str) || 1;
+}
 
-      <button class="tab-item" onclick="switchTab('settings')">
-        <svg class="tab-icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-        <span class="tab-label">Opties</span>
-      </button>
+function cleanIngredientName(name) {
+  // Verwijder overbodige lidwoorden en beschrijvingen aan het begin
+  name = name.replace(/^(van\s+|voor\s+|of\s+|verse\s+|fijngehakte\s+|blikken\s+|blikje\s+)/i, '');
+  name = name.toLowerCase().trim();
+  
+  // Plural normalisaties om ingrediënten goed te groeperen
+  const normalizationMap = {
+    'paprika\'s': 'paprika',
+    'tomaatjes': 'tomaat',
+    'tomaten': 'tomaat',
+    'cherrytomaten': 'cherrytomaat',
+    'cherrytomaatjes': 'cherrytomaat',
+    'aardappelen': 'aardappel',
+    'teentjes knoflook': 'knoflook',
+    'teentje knoflook': 'knoflook',
+    'courgettes': 'courgette',
+    'komkommers': 'komkommer',
+    'wortels': 'wortel',
+    'wortelen': 'wortel',
+    'spekreepjes': 'spekjes',
+    'uien': 'ui'
+  };
+  
+  for (let plural in normalizationMap) {
+    if (name === plural || name.includes(plural)) {
+      name = name.replace(plural, normalizationMap[plural]);
+      break;
+    }
+  }
+  
+  // Hoofdletter
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
 
-    </nav>
+function copyShoppingList() {
+  const container = document.getElementById('shopping-list-container');
+  const items = container.querySelectorAll('.shopping-item');
+  
+  if (items.length === 0) {
+    showToast("Geen ingrediënten om te kopiëren");
+    return;
+  }
+  
+  let text = "*BOODSCHAPPENLIJST WEEKMENU*\n\n";
+  let currentCat = "";
+  
+  const elements = container.children;
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i];
+    if (el.classList.contains('shopping-cat-title')) {
+      currentCat = el.textContent;
+      text += `\n*${currentCat.toUpperCase()}*\n`;
+    } else if (el.classList.contains('shopping-item')) {
+      const checked = el.classList.contains('checked') ? "✅ " : "⬜ ";
+      const amount = el.querySelector('.shopping-amount').textContent;
+      const name = el.querySelector('.shopping-name').textContent;
+      text += `${checked}${amount} ${name}\n`;
+    }
+  }
+  
+  navigator.clipboard.writeText(text).then(() => {
+    showToast("Gekopieerd naar klembord! Stuur direct via WhatsApp.");
+  }).catch(err => {
+    alert("Fout bij kopiëren: " + err);
+  });
+}
 
-    <!-- DETAILED RECIPE OVERLAY (Cupertino Modal Sheet) -->
-    <div id="recipe-modal" class="ios-modal hidden" onclick="closeModalOnBackdrop(event)">
-      <div class="modal-sheet animate-slide-up">
+// ==========================================
+// INSTELLINGEN, GEZINS-SYNC & IMPORT/EXPORT
+// ==========================================
+
+function saveSyncKey() {
+  const input = document.getElementById('settings-sync-key');
+  state.syncKey = input.value.trim().replace(/[^a-zA-Z0-9-_]/g, ''); // Clean characters
+  input.value = state.syncKey;
+  saveToLocalStorage();
+  updateSyncStatusText();
+}
+
+function saveSyncApiKey() {
+  const input = document.getElementById('settings-sync-api-key');
+  state.syncApiKey = input.value.trim().replace(/[^a-zA-Z0-9-_]/g, ''); // Clean characters
+  input.value = state.syncApiKey;
+  saveToLocalStorage();
+  updateSyncStatusText();
+}
+
+function updateSyncStatusText() {
+  const status = document.getElementById('sync-status-msg');
+  if (!status) return;
+  
+  if (state.syncKey) {
+    status.className = "sync-status-online";
+    status.textContent = `Gezinscode actief: "${state.syncKey}" (Tik 'Synchroniseer Nu' om te delen)`;
+  } else {
+    status.className = "sync-status-offline";
+    status.textContent = "Geen gezinscode actief. Synchronisatie uitgeschakeld.";
+  }
+}
+
+async function syncWithCloud() {
+  const KVDB_BASE_URL = 'https://kvdb.io';
+  if (!state.syncApiKey) {
+    alert("Voer eerst een bucket ID in bij Instellingen om te kunnen synchroniseren.");
+    return;
+  }
+  
+  if (!state.syncKey) {
+    alert("Voer eerst een unieke Gezins-code in bij Instellingen om te kunnen synchroniseren.");
+    return;
+  }
+  
+  const btn = document.getElementById('btn-sync');
+  const originalText = btn.textContent;
+  btn.textContent = "Synchroniseren...";
+  btn.disabled = true;
+  
+  try {
+    //const url = `${SYNC_API_URL}/${SYNC_BUCKET_ID}/${state.syncKey}`;
+	const url = `${KVDB_BASE_URL}/${state.syncApiKey}/${state.syncKey}`;
+    
+    // 1. Haal de cloud data op
+    const response = await fetch(url);
+    let cloudData = null;
+    
+    if (response.ok) {
+      cloudData = await response.json();
+    }
+    
+    if (cloudData) {
+      // Er is bestaande cloud data. Samenvoegen op basis van timestamp.
+      // We behouden de meest recente status van het menu en de recepten.
+      console.log("Cloud data gevonden. Mergen...", cloudData);
+      
+      // Merge recepten database (voeg recepten toe die lokaal ontbreken, en andersom)
+      let mergedRecipes = [...state.recipes];
+      
+      cloudData.recipes.forEach(cloudRec => {
+        const localIndex = mergedRecipes.findIndex(r => r.id === cloudRec.id);
+        if (localIndex === -1) {
+          // Recept bestaat niet lokaal, toevoegen
+          mergedRecipes.push(cloudRec);
+        } else {
+          // Recept bestaat al. In een complexer systeem zouden we timestamps checken.
+          // Hier overschrijven we lokaal met cloud data indien cloud nieuwer is.
+          if (cloudData.lastUpdated > state.lastUpdated) {
+            mergedRecipes[localIndex] = cloudRec;
+          }
+        }
+      });
+      
+      state.recipes = mergedRecipes;
+      
+      // Merge weekmenu op basis van de laatste wijzigingstijd
+      if (cloudData.lastUpdated > state.lastUpdated) {
+        state.weekmenu = cloudData.weekmenu;
+        // Neem ook checked items over van cloud
+        state.shoppingListChecked = cloudData.shoppingListChecked || {};
+      }
+    }
+    
+    // 2. Upload de geüpdatete data terug naar de cloud
+    state.lastUpdated = Date.now();
+    const payload = {
+      recipes: state.recipes,
+      weekmenu: state.weekmenu,
+      lastUpdated: state.lastUpdated,
+      shoppingListChecked: state.shoppingListChecked
+    };
+    
+    const writeResponse = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (!writeResponse.ok) {
+      throw new Error("Cloud write failed");
+    }
+    
+    saveToLocalStorage();
+    showToast("Synchronisatie voltooid!");
+    
+    // Re-render planners
+    renderPlanner();
+    renderRecipesList();
+    
+  } catch (error) {
+    console.error("Sync error:", error);
+    alert("Synchronisatie mislukt. Controleer je internetverbinding en probeer het opnieuw.");
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
+}
+
+// Handmatige backup export
+function exportData() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
+    recipes: state.recipes,
+    weekmenu: state.weekmenu
+  }, null, 2));
+  
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `recepten_weekmenu_backup_${new Date().toISOString().slice(0,10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  
+  showToast("Back-up gedownload");
+}
+
+// Handmatige backup import
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (parsed.recipes && Array.isArray(parsed.recipes)) {
+        state.recipes = parsed.recipes;
+        state.weekmenu = parsed.weekmenu || state.weekmenu;
+        state.shoppingListChecked = {}; // Reset checked items bij nieuwe import
         
-        <!-- Modal Top Indicator Drag Handle -->
-        <div class="modal-drag-indicator"></div>
+        saveToLocalStorage();
+        renderPlanner();
+        renderRecipesList();
         
-        <!-- Modal Navigation Bar -->
-        <div class="modal-nav">
-          <span id="modal-recipe-id" class="modal-badge">#1001</span>
-          <h2 id="modal-recipe-name">Recept Details</h2>
-          <button class="modal-close-btn" onclick="closeRecipeModal()">Sluit</button>
-        </div>
+        showToast("Gegevens succesvol geïmporteerd!");
+      } else {
+        alert("Ongeldig bestandsformaat. Kan receptendatabase niet vinden.");
+      }
+    } catch (err) {
+      alert("Fout bij inlezen van bestand: " + err);
+    }
+  };
+  reader.readAsText(file);
+}
 
-        <div class="modal-body-scroll">
-          
-          <div class="modal-metadata-grid">
-            <div class="meta-item">
-              <span class="meta-label">Bereidingstijd</span>
-              <span id="modal-recipe-time" class="meta-val">45 min</span>
-            </div>
-			<div class="meta-item">
-			  <span class="meta-label">Type</span>
-			  <span id="modal-recipe-type" class="meta-val">-</span>
-			</div>
-            <div class="meta-item">
-              <span class="meta-label">Keuken</span>
-              <span id="modal-recipe-cuisine" class="meta-val">Italiaans</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">Seizoenen</span>
-              <span id="modal-recipe-seasons" class="meta-val">Alle</span>
-            </div>
-          </div>
-
-          <div class="modal-section-title">Ingrediënten</div>
-          <div class="ios-card modal-card">
-            <ul id="modal-ingredients-list" class="styled-list">
-              <!-- Injected ingredients -->
-            </ul>
-          </div>
-
-          <div class="modal-section-title">Bereidingswijze</div>
-          <div class="ios-card modal-card">
-            <div id="modal-instructions-content" class="text-block">
-              <!-- Injected cooking instructions -->
-            </div>
-          </div>
-
-          <div class="modal-section-title green-title">Gezinsaanpassingen (4 personen)</div>
-          <div class="ios-card modal-card family-adjustments-card">
-            <div class="adjustment-section">
-              <div class="adj-header">
-                <svg class="adj-icon green" viewBox="0 0 24 24"><path d="M17 8C8 10 5.9 16.17 3.82 21.34c-.1.22.06.47.3.47h3.38c.66 0 1.25-.37 1.54-.97l1.7-3.52c.2-.42.63-.69 1.1-.69h3.42c2.44 0 4.41-1.97 4.41-4.41V8h-2.67zM6 3c-.55 0-1 .45-1 1v2c0 .55.45 1 1 1s1-.45 1-1V4c0-.55-.45-1-1-1zm6-1c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1s1-.45 1-1V3c0-.55-.45-1-1-1zm6 1c-.55 0-1 .45-1 1v1c0 .55.45 1 1 1s1-.45 1-1V4c0-.55-.45-1-1-1z"/></svg>
-                <h4>Voor de Vegetariër</h4>
-              </div>
-              <p id="modal-recipe-veg"></p>
-            </div>
-            <div class="adjustment-section border-top">
-              <div class="adj-header">
-                <svg class="adj-icon orange" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z"/></svg>
-                <h4>Voor de Moeilijke Eter</h4>
-              </div>
-              <p id="modal-recipe-picky"></p>
-            </div>
-          </div>
-
-          <div class="modal-section-title">Opmerkingen</div>
-          <div class="ios-card modal-card">
-            <p id="modal-recipe-notes" class="text-block text-grey"></p>
-          </div>
-
-          <div class="modal-actions">
-            <button id="modal-btn-plan" class="ios-button primary" onclick="openPlanActionSheetFromModal()">Zet in Weekmenu...</button>
-            <button id="modal-btn-delete" class="ios-button danger-light" onclick="deleteRecipeFromModal()">Verwijder dit Recept</button>
-          </div>
-
-          <div style="height: 50px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ACTION SHEET: CHOOSE DAY FOR RECIPE -->
-    <div id="day-selector-sheet" class="ios-action-sheet-backdrop hidden" onclick="closeDaySelectorSheet()">
-      <div class="action-sheet animate-slide-up-sheet">
-        <div class="action-sheet-title">Kies een dag voor het weekmenu</div>
-        <div class="action-sheet-group">
-          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Maandag')">Maandag</button>
-          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Dinsdag')">Dinsdag</button>
-          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Woensdag')">Woensdag</button>
-          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Donderdag')">Donderdag</button>
-          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Vrijdag')">Vrijdag</button>
-          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Zaterdag')">Zaterdag</button>
-          <button class="action-btn" onclick="assignRecipeToDayFromSheet('Zondag')">Zondag</button>
-        </div>
-        <div class="action-sheet-group">
-          <button class="action-btn cancel-btn" onclick="closeDaySelectorSheet()">Annuleer</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- CONTEXT MENU / DIALOG: CLEAR OR CHANGE DAY -->
-    <div id="planner-action-sheet" class="ios-action-sheet-backdrop hidden" onclick="closePlannerActionSheet()">
-      <div class="action-sheet animate-slide-up-sheet">
-        <div id="planner-action-title" class="action-sheet-title">Maandag: Lasagne</div>
-        <div class="action-sheet-group">
-          <button class="action-btn" onclick="openRecipeDetailsFromPlannerSheet()">Bekijk Recept</button>
-          <button class="action-btn" onclick="goToSuggestionsFromPlannerSheet()">Kies Ander Gerecht</button>
-          <button class="action-btn danger-btn" onclick="clearDayFromPlannerSheet()">Verwijder van deze dag</button>
-        </div>
-        <div class="action-sheet-group">
-          <button class="action-btn cancel-btn" onclick="closePlannerActionSheet()">Annuleer</button>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Load Scripts in Order -->
-  <script src="recipes-seed.js"></script>
-  <script src="app.js"></script>
-</body>
-</html>
+function confirmResetToSeed() {
+  if (confirm("Weet je zeker dat je alle data wilt wissen en herstellen naar de 5 standaard recepten?")) {
+    loadSeedData();
+    renderPlanner();
+    renderRecipesList();
+    showToast("Hersteld naar standaard recepten");
+    switchTab('menu');
+  }
+}
