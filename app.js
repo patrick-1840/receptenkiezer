@@ -523,8 +523,8 @@ function deleteRecipeFromModal() {
   const recipe = state.recipes.find(r => r.id === activeModalRecipeId);
   if (confirm(`Weet je zeker dat je het recept "${recipe.name}" permanent wilt verwijderen?`)) {
     // Verwijder uit recepten
-    state.recipes = state.recipes.filter(r => r.id !== activeModalRecipeId);
     state.deletedRecipeIds.push(activeModalRecipeId);
+    state.recipes = state.recipes.filter(r => r.id !== activeModalRecipeId);
     
     // Verwijder uit weekplanner indien ingepland
     for (let day in state.weekmenu) {
@@ -534,6 +534,7 @@ function deleteRecipeFromModal() {
     }
     
     saveToLocalStorage();
+    syncWithCloud();
     closeRecipeModal();
     showToast("Recept verwijderd");
     
@@ -541,7 +542,6 @@ function deleteRecipeFromModal() {
     renderRecipesList();
     renderPlanner();
   }
-  syncWithCloud();
 }
 
 // ==========================================
@@ -1097,54 +1097,33 @@ async function syncWithCloud() {
     
     // 1. Haal de cloud data op
     const response = await fetch(url);
-    let cloudData = null;
+	const cloudData = await response.json();
+	
+	
+	if (cloudData) {
+    // A. Update je eigen verwijder-lijst met die van de cloud
+    const allDeletedIds = [...new Set([...state.deletedRecipeIds, ...cloudData.deletedRecipeIds])];
+    state.deletedRecipeIds = allDeletedIds;
+
+    // B. Filter je lokale recepten: verwijder alles wat in de 'deleted' lijst staat
+    state.recipes = state.recipes.filter(r => !state.deletedRecipeIds.includes(r.id));
     
-    if (response.ok) {
-      cloudData = await response.json();
-    }
-    
-    if (cloudData) {
-      // Er is bestaande cloud data. Samenvoegen op basis van timestamp.
-      // We behouden de meest recente status van het menu en de recepten.
-      console.log("Cloud data gevonden. Mergen...", cloudData);
-      
-      // Merge recepten database (voeg recepten toe die lokaal ontbreken, en andersom)
-      let mergedRecipes = [...state.recipes];
-      
-      cloudData.recipes.forEach(cloudRec => {
-		if (state.deletedRecipeIds.includes(cloudRec.id)) return;
-		
-        const localIndex = mergedRecipes.findIndex(r => r.id === cloudRec.id);
+    // C. Voeg nieuwe recepten uit de cloud toe (mits niet verwijderd)
+    cloudData.recipes.forEach(cloudRec => {
+      if (!state.deletedRecipeIds.includes(cloudRec.id)) {
+        const localIndex = state.recipes.findIndex(r => r.id === cloudRec.id);
         if (localIndex === -1) {
-          // Recept bestaat niet lokaal, toevoegen
-          mergedRecipes.push(cloudRec);
+          state.recipes.push(cloudRec);
         }
-/*		else {
-          // Recept bestaat al. In een complexer systeem zouden we timestamps checken.
-          // Hier overschrijven we lokaal met cloud data indien cloud nieuwer is.
-          if (cloudData.lastUpdated > state.lastUpdated) {
-            mergedRecipes[localIndex] = cloudRec;
-          }
-        }
-		*/
-      });
-      
-      state.recipes = mergedRecipes;
-      
-      // Merge weekmenu op basis van de laatste wijzigingstijd
-      if (cloudData.lastUpdated > state.lastUpdated) {
-        state.weekmenu = cloudData.weekmenu;
-        // Neem ook checked items over van cloud
-        state.shoppingListChecked = cloudData.shoppingListChecked || {};
       }
-    }
-    
-    // 2. Upload de geüpdatete data terug naar de cloud
-    state.lastUpdated = Date.now();
-    const payload = {
-      recipes: state.recipes,
-	  deletedRecipeIds: state.deletedRecipeIds,
-      weekmenu: state.weekmenu,
+    });
+  }
+
+  // 2. Upload de vernieuwde staat naar de cloud
+  const payload = {
+    recipes: state.recipes,
+    deletedRecipeIds: state.deletedRecipeIds, // Essentieel!
+    weekmenu: state.weekmenu,
       lastUpdated: state.lastUpdated,
       shoppingListChecked: state.shoppingListChecked
     };
@@ -1232,3 +1211,4 @@ function confirmResetToSeed() {
     switchTab('menu');
   }
 }
+
