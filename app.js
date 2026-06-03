@@ -713,10 +713,10 @@ function saveNewRecipe(event) {
     alert("Selecteer ten minste één geschikt seizoen.");
     return;
   }
-  if (dishType.length === 0) {
-    alert("Selecteer ten minste één keuken.");
-    return;
-  }
+ if (!dishType) { 
+  alert("Selecteer een soort gerecht.");
+  return;
+}
   if (cuisine.length === 0) {
     alert("Selecteer ten minste één keuken.");
     return;
