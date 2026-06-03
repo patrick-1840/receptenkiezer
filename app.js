@@ -22,11 +22,6 @@ let state = {
   shoppingListChecked: {} // key format: "itemName_isChecked"
 };
 
-// Cloud Sync configuration
-//const SYNC_BUCKET_ID = "4NaY4FPKgfhiSxfFQwps68";
-//const SYNC_API_URL = state.syncKey;
-//"https://kvdb.io/4NaY4FPKgfhiSxfFQwps68"; // Unieke app bucket
-
 // Initialisatie bij het laden van de pagina
 document.addEventListener('DOMContentLoaded', () => {
   loadData();
