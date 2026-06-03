@@ -457,7 +457,7 @@ function openRecipeDetails(recipeId) {
   document.getElementById('modal-recipe-id').textContent = `#${recipe.id}`;
   document.getElementById('modal-recipe-name').textContent = recipe.name;
   document.getElementById('modal-recipe-time').textContent = `${recipe.prepTime} min`;
-  document.getElementById('modal-recipe-dishType').textContent = recipe.dishType.join(', ');
+  document.getElementById('modal-recipe-type').textContent = recipe.dishType.join(', ');
   document.getElementById('modal-recipe-cuisine').textContent = recipe.cuisine.join(', ');
   document.getElementById('modal-recipe-seasons').textContent = recipe.seasons.join(', ');
   
@@ -551,7 +551,7 @@ function toggleFilter(btn) {
   
   btn.classList.toggle('active');
   
-  const list = type === 'season' ? state.activeFilters.seasons : state.activeFilters.dishTypes: state.activeFilters.cuisines;
+  const list = type === 'season' ? state.activeFilters.seasons : state.activeFilters.cuisines;
   const index = list.indexOf(value);
   
   if (index > -1) {
@@ -621,11 +621,11 @@ function renderRecipesList() {
       if (!hasSeason) return false;
     }
     
-    // 3. Keukens filter
-    if (state.activeFilters.dishTypes.length > 0) {
-      const hasDishType = recipe.dishType.some(c => state.activeFilters.dishTypes.includes(c));
-      if (!hasDishType) return false;
-    }
+    // 3. dishTypes filter
+	if (state.activeFilters.dishTypes.length > 0) {
+		const hasMatch = recipe.dishType.some(d => state.activeFilters.dishTypes.includes(d));
+		if (!hasMatch) return false;
+	}
     
     // 3. Keukens filter
     if (state.activeFilters.cuisines.length > 0) {
@@ -700,9 +700,9 @@ function saveNewRecipe(event) {
   const seasonCbs = document.querySelectorAll('input[name="form-seasons"]:checked');
   const seasons = Array.from(seasonCbs).map(cb => cb.value);
   
-  // Keukens multi-select
-  const dishTypeCbs = document.querySelectorAll('input[name="form-dishType"]:checked');
-  const dishType = Array.from(dishTypeCbs).map(cb => cb.value);
+  // Dish type multi-select
+	const dishTypeElement = document.querySelector('input[name="form-dish"]:checked');
+    const dishType = dishTypeElement ? dishTypeElement.value : null;
   
   // Keukens multi-select
   const cuisineCbs = document.querySelectorAll('input[name="form-cuisine"]:checked');
