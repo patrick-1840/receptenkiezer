@@ -1045,7 +1045,6 @@ function updateSyncStatusText() {
 }
 
 async function syncWithCloud() {
-	alert(state.syncKey);
   if (!state.syncKey) {
     alert("Voer eerst een unieke Gezins-code in bij Instellingen om te kunnen synchroniseren.");
     return;
