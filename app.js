@@ -73,7 +73,7 @@ function loadData() {
   const syncInput = document.getElementById('settings-sync-key');
   if (syncInput) syncInput.value = state.syncKey;
   if (syncApiInput) syncApiInput.value = state.syncApiKey;
-  //syncWithCloud();
+  syncWithCloud();
   updateSyncStatusText();
 }
 
@@ -541,7 +541,7 @@ function deleteRecipeFromModal() {
     renderRecipesList();
     renderPlanner();
   }
-  //syncWithCloud();
+  syncWithCloud();
 }
 
 // ==========================================
