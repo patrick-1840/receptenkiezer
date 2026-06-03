@@ -456,7 +456,7 @@ function openRecipeDetails(recipeId) {
   document.getElementById('modal-recipe-id').textContent = `#${recipe.id}`;
   document.getElementById('modal-recipe-name').textContent = recipe.name;
   document.getElementById('modal-recipe-time').textContent = `${recipe.prepTime} min`;
-  document.getElementById('modal-recipe-type').textContent = recipe.dishType.join(', ');
+  document.getElementById('modal-recipe-type').textContent = recipe.dishType ? recipe.dishType.join(', ') : '-';
   document.getElementById('modal-recipe-cuisine').textContent = recipe.cuisine.join(', ');
   document.getElementById('modal-recipe-seasons').textContent = recipe.seasons.join(', ');
   
