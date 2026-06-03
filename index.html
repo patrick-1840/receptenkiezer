@@ -91,14 +91,13 @@
               <button class="pill-button" data-type="season" data-value="Winter" onclick="toggleFilter(this)">❄️ Winter</button>
             </div>
             
-			<div class="ios-list-group-title">Gerecht</div>
-				<div class="ios-card form-card">
-				  <div class="checkbox-pill-grid form-grid">
-					<label class="pill-checkbox"><input type="radio" name="form-dish" value="voorgerecht" required><span>🥗 Voorgerecht</span></label>
-					<label class="pill-checkbox"><input type="radio" name="form-dish" value="soep" required><span>🥣 Soep</span></label>
-					<label class="pill-checkbox"><input type="radio" name="form-dish" value="hoofdgerecht" required><span>🍽️ Hoofdgerecht</span></label>
-					<label class="pill-checkbox"><input type="radio" name="form-dish" value="dessert" required><span>🍰 Dessert</span></label>
-				  </div>
+            <div class="filter-section-title" style="margin-top: 8px;">Filteren op gerecht</div>
+            <div class="filter-scroll" id="filter-cuisines">
+				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Voorgerecht" required><span>🥗 Voorgerecht</span></label>
+				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Soep" required><span>🥣 Soep</span></label>
+				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Hoofdgerecht" required><span>🍽️ Hoofdgerecht</span></label>
+				<label class="pill-checkbox"><input type="radio" name="form-dish" value="Dessert" required><span>🍰 Dessert</span></label>
+			  </div>
 			</div>
 
             <div class="filter-section-title" style="margin-top: 8px;">Filteren op keuken</div>
@@ -161,11 +160,11 @@
 
 				<div class="form-row">
 				  <label>Soort gerecht</label>
-				  <div class="checkbox-pill-grid" id="suggestion-dish-grid">
-					<label class="pill-checkbox"><input type="checkbox" value="voorgerecht" checked><span>🥗 Voorgerecht</span></label>
-					<label class="pill-checkbox"><input type="checkbox" value="soep" checked><span>🥣 Soep</span></label>
+				  <div class="checkbox-pill-grid" id="suggestion-dishType-grid">
+					<label class="pill-checkbox"><input type="checkbox" value="voorgerecht"><span>🥗 Voorgerecht</span></label>
+					<label class="pill-checkbox"><input type="checkbox" value="soep"><span>🥣 Soep</span></label>
 					<label class="pill-checkbox"><input type="checkbox" value="hoofdgerecht" checked><span>🍽️ Hoofdgerecht</span></label>
-					<label class="pill-checkbox"><input type="checkbox" value="dessert" checked><span>🍰 Dessert</span></label>
+					<label class="pill-checkbox"><input type="checkbox" value="dessert"><span>🍰 Dessert</span></label>
 				  </div>
 				</div>
 
@@ -249,10 +248,10 @@
 		  <div class="ios-list-group-title">Gerecht</div>
 			<div class="ios-card form-card">
 			  <div class="checkbox-pill-grid form-grid">
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="voorgerecht" required><span>🥗 Voorgerecht</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="soep" required><span>🥣 Soep</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="hoofdgerecht" required><span>🍽️ Hoofdgerecht</span></label>
-				<label class="pill-checkbox"><input type="radio" name="form-dish" value="dessert" required><span>🍰 Dessert</span></label>
+				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Voorgerecht" required><span>🥗 Voorgerecht</span></label>
+				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Soep" required><span>🥣 Soep</span></label>
+				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Hoofdgerecht" required><span>🍽️ Hoofdgerecht</span></label>
+				<label class="pill-checkbox"><input type="radio" name="form-dishType" value="Dessert" required><span>🍰 Dessert</span></label>
 			  </div>
 			</div>
 
