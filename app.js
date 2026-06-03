@@ -701,7 +701,7 @@ function saveNewRecipe(event) {
   const seasons = Array.from(seasonCbs).map(cb => cb.value);
   
   // Dish type multi-select
-	const dishTypeElement = document.querySelector('input[name="form-dish"]:checked');
+	const dishTypeElement = document.querySelector('input[name="form-dishType"]:checked');
     const dishType = dishTypeElement ? dishTypeElement.value : null;
   
   // Keukens multi-select
