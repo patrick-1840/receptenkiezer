@@ -209,15 +209,14 @@
                 <input type="text" id="form-name" required placeholder="Bijv. Romige Pasta Carbonara">
               </div>
 			  
-			  <div class="form-group border-top">
-				  <label for="form-dish-type">Gerecht <span class="required">*</span></label>
-				  <select id="form-dish-type" class="ios-select" required>
-					<option value="" disabled selected>Maak een keuze...</option>
-					<option value="voorgerecht">Voorgerecht</option>
-					<option value="soep">Soep</option>
-					<option value="hoofdgerecht">Hoofdgerecht</option>
-					<option value="dessert">Dessert</option>
-				  </select>
+			  <div class="ios-list-group-title">Gerecht</div>
+				<div class="ios-card form-card">
+				  <div class="checkbox-pill-grid form-grid">
+					<label class="pill-checkbox"><input type="radio" name="form-dish" value="voorgerecht" required><span>🥗 Voorgerecht</span></label>
+					<label class="pill-checkbox"><input type="radio" name="form-dish" value="soep" required><span>🥣 Soep</span></label>
+					<label class="pill-checkbox"><input type="radio" name="form-dish" value="hoofdgerecht" required><span>🍽️ Hoofdgerecht</span></label>
+					<label class="pill-checkbox"><input type="radio" name="form-dish" value="dessert" required><span>🍰 Dessert</span></label>
+				  </div>
 				</div>
 
               <div class="form-group">
