@@ -1044,10 +1044,8 @@ function updateSyncStatusText() {
 }
 
 async function syncWithCloud() {
-  const SYNC_API_URL = 'https://kvdb.io/';
+  const SYNC_API_URL = 'https://kvdb.io';
   const SYNC_BUCKET_ID = state.syncApiKey;
-  alert('bucket url'+SYNC_BUCKET_url);
-  alert('bucket id'+SYNC_BUCKET_ID);
   if (!state.syncApiKey) {
     alert("Voer eerst een bucket ID in bij Instellingen om te kunnen synchroniseren.");
     return;
