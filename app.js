@@ -55,7 +55,6 @@ function loadData() {
       };
       state.syncKey = parsed.syncKey || '';
       state.syncApiKey = parsed.syncApiKey || '';
-	  const SYNC_BUCKET_ID = "https://kvdb.io/"+parsed.syncApiKey || '';
       state.lastUpdated = parsed.lastUpdated || Date.now();
       state.shoppingListChecked = parsed.shoppingListChecked || {};
     } catch (e) {
@@ -1047,6 +1046,8 @@ function updateSyncStatusText() {
 async function syncWithCloud() {
 	alert(state.syncKey);
 	alert(state.syncApiKey);
+  const SYNC_BUCKET_ID = "https://kvdb.io/"+parsed.syncApiKey || '';
+  alert('bucket url'+SYNC_BUCKET_ID);
   if (!state.syncApiKey) {
     alert("Voer eerst een bucket ID in bij Instellingen om te kunnen synchroniseren.");
     return;
