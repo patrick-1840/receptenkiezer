@@ -1045,6 +1045,13 @@ function updateSyncStatusText() {
 }
 
 async function syncWithCloud() {
+	alert(state.syncKey);
+	alert(state.syncApiKey);
+  if (!state.syncApiKey) {
+    alert("Voer eerst een bucket ID in bij Instellingen om te kunnen synchroniseren.");
+    return;
+  }
+  
   if (!state.syncKey) {
     alert("Voer eerst een unieke Gezins-code in bij Instellingen om te kunnen synchroniseren.");
     return;
@@ -1057,6 +1064,7 @@ async function syncWithCloud() {
   
   try {
     const url = `${SYNC_API_URL}/${state.syncKey}`;
+	alert(url);
     
     // 1. Haal de cloud data op
     const response = await fetch(url);
