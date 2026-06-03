@@ -537,7 +537,7 @@ function deleteRecipeFromModal() {
     renderRecipesList();
     renderPlanner();
   }
-  syncWithCloud();
+  //syncWithCloud();
 }
 
 // ==========================================
