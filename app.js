@@ -1063,7 +1063,6 @@ async function syncWithCloud() {
   try {
     //const url = `${SYNC_API_URL}/${SYNC_BUCKET_ID}/${state.syncKey}`;
 	const url = `${KVDB_BASE_URL}/${state.syncApiKey}/${state.syncKey}`;
-	alert(url);
     
     // 1. Haal de cloud data op
     const response = await fetch(url);
