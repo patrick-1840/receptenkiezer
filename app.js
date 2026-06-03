@@ -1064,6 +1064,7 @@ async function syncWithCloud() {
   
   try {
     const url = `${SYNC_API_URL}/${state.syncKey}`;
+	alert(url);
     
     // 1. Haal de cloud data op
     const response = await fetch(url);
