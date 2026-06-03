@@ -70,6 +70,7 @@ function loadData() {
   const syncInput = document.getElementById('settings-sync-key');
   if (syncInput) syncInput.value = state.syncKey;
   if (syncApiInput) syncApiInput.value = state.syncApiKey;
+  syncWithCloud();
   updateSyncStatusText();
 }
 
@@ -725,6 +726,7 @@ function saveNewRecipe(event) {
   
   state.recipes.push(newRecipe);
   saveToLocalStorage();
+  syncWithCloud();
   
   // Formulier resetten en succes tonen
   document.getElementById('add-recipe-form').reset();
