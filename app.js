@@ -23,7 +23,7 @@ let state = {
 };
 
 // Cloud Sync configuration
-const SYNC_BUCKET_ID = "4NaY4FPKgfhiSxfFQwps68";
+//const SYNC_BUCKET_ID = "4NaY4FPKgfhiSxfFQwps68";
 //const SYNC_API_URL = state.syncKey;
 //"https://kvdb.io/4NaY4FPKgfhiSxfFQwps68"; // Unieke app bucket
 
@@ -55,7 +55,7 @@ function loadData() {
       };
       state.syncKey = parsed.syncKey || '';
       state.syncApiKey = parsed.syncApiKey || '';
-	  const SYNC_BUCKET_ID = parsed.syncApiKey || '';
+	  const SYNC_BUCKET_ID = "https://kvdb.io/"+parsed.syncApiKey || '';
       state.lastUpdated = parsed.lastUpdated || Date.now();
       state.shoppingListChecked = parsed.shoppingListChecked || {};
     } catch (e) {
